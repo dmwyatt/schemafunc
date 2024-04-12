@@ -40,6 +40,42 @@ output to match the schema of the function.
   * Use by unpacking the kwargs into the `openai` API call.
 
 ## Example
+
+### Quick Example
+
+```python
+import openai
+import json
+from schemafunc import add_schemafunc
+
+@add_schemafunc  # 🪄✨ MAGIC DECORATOR
+def my_awesome_tool(foo: str, bar: int):
+    """
+    This is a really cool tool that does something amazing.
+
+    :param foo: A string parameter.
+    :param bar: An integer parameter.
+    """
+    return {"foo": foo, "bar": bar}
+
+client = openai.Client()
+messages = [{"role": "user", "content": "When baz happens, use my_awesome_tool."}]
+   
+response = client.chat.completions.create(
+    model="gpt-3.5-turbo",
+    messages=messages,
+    # 🪄✨ THE MAGIC HAPPENS HERE!
+    **my_awesome_tool.schemafunc.openai_tool_kwargs
+)
+print(json.loads(response.choices[0].message.tool_calls[0].function.arguments))
+{
+    "foo": "baz",
+    "bar": 42
+}
+```
+
+## Detailed example
+
 You want to add a Wikipedia-searching tool to your chatbot. 
 
 ```python
