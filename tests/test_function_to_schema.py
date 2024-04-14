@@ -487,6 +487,50 @@ test_has_optional_type_annotation_with_default_none.expected = {
     },
 }
 
+def func_with_undocumented_param_ignore(a: int, b: str):
+    """
+    Function with an undocumented parameter.
+
+    :param a: The first parameter.
+    """
+    pass
+
+func_with_undocumented_param_ignore.expected = {
+    "type": "function",
+    "function": {
+        "name": "func_with_undocumented_param_ignore",
+        "description": "Function with an undocumented parameter.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "a": {"type": "integer", "description": "The first parameter."},
+                "b": {"type": "string"},
+            },
+            "required": ["a", "b"],
+        },
+    },
+    "__fts_args__": {"ignore_undocumented_params": True}
+}
+
+def func_with_no_docstring_ignore(a: int):
+    pass
+
+func_with_no_docstring_ignore.expected = {
+    "type": "function",
+    "function": {
+        "name": "func_with_no_docstring_ignore",
+        "description": "",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "a": {"type": "integer"},
+            },
+            "required": ["a"],
+        },
+    },
+    "__fts_args__": {"ignore_no_docstring": True}
+}
+
 
 @pytest.mark.parametrize(
     "function",
@@ -507,11 +551,13 @@ test_has_optional_type_annotation_with_default_none.expected = {
         has_union_with_none_and_default_value,
         has_none_as_default_value_without_corresponding_type_annotation,
         has_optional_type_annotation_without_default_none,
+        func_with_undocumented_param_ignore,
+        func_with_no_docstring_ignore
     ],
 )
 def test_function_to_schema(function):
-    fts_args = function.expected.get("__fts_args__", {})
-    expected_error = function.expected.get("__fts_error__", None)
+    fts_args = function.expected.pop("__fts_args__", {})
+    expected_error = function.expected.pop("__fts_error__", None)
 
     if expected_error:
         with pytest.raises(expected_error):
