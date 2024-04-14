@@ -133,17 +133,28 @@ def process_parameters(
     return parameters
 
 
+class NoShortDescriptionError(Exception):
+    pass
+
+
 def generate_schema(
-    func: typing.Callable, docstring: Docstring, parameters: dict
+    func: typing.Callable,
+    docstring: Docstring,
+    parameters: dict,
+    ignore_no_docstring: bool,
 ) -> dict:
-    if not docstring.short_description:
-        raise ValueError("The function must have a short description in the docstring")
+    if not docstring.short_description and not ignore_no_docstring:
+        raise NoShortDescriptionError(
+            "The function must have a short description in the docstring"
+        )
 
     schema = {
         "type": "function",
         "function": {
             "name": func.__name__,
-            "description": docstring.short_description,
+            "description": docstring.short_description
+            if docstring.short_description
+            else "",
             "parameters": {
                 "type": "object",
                 "properties": parameters,
