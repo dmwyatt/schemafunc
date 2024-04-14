@@ -62,8 +62,9 @@ def function_to_schema(
     signature = inspect.signature(func)
     docstring = parse(func.__doc__)
 
-    if not docstring.short_description and not ignore_no_docstring:
-        raise NoDocstringError("The function must have a docstring")
+    if not docstring.short_description:
+        if not ignore_no_docstring:
+            raise NoDocstringError("The function must have a docstring")
 
     parameters = process_parameters(
         signature,
@@ -71,8 +72,9 @@ def function_to_schema(
         require_param_descriptions,
         allow_bare_generic_types,
         ignore_undocumented_params,
+        ignore_no_docstring,
     )
-    return generate_schema(func, docstring, parameters)
+    return generate_schema(func, docstring, parameters, ignore_no_docstring)
 
 
 class ParameterNotDocumentedError(Exception):
@@ -88,7 +90,8 @@ def process_parameters(
     docstring: Docstring,
     require_param_descriptions: bool,
     allow_bare_generic_types: bool,
-    ignore_undocumented_params: bool = False,
+    ignore_undocumented_params: bool,
+    ignore_no_docstring: bool,
 ) -> dict:
     parameters = {}
 
@@ -110,7 +113,7 @@ def process_parameters(
                 raise
 
         if param_docstring is None:
-            if not ignore_undocumented_params:
+            if not ignore_undocumented_params and not ignore_no_docstring:
                 raise ParameterNotDocumentedError(
                     f"Parameter {name} is not documented in the docstring"
                 )
