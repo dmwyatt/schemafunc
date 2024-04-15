@@ -198,6 +198,48 @@ class UnsupportedTypeError(Exception):
 
 
 def resolve_type(param_type: typing.Type) -> dict:
+    """
+    Resolves a Python type into a JSON Schema dictionary.
+
+    This function takes a Python type (such as `int`, `str`, `typing.Union`,
+    `typing.List`, etc.) and returns a dictionary representing the equivalent
+    JSON Schema type.
+
+    Args:
+        param_type (typing.Type): The Python type to resolve.
+
+    Returns:
+        dict: A dictionary representing the JSON Schema equivalent of the input type.
+
+    Raises:
+        UnsupportedTypeError: If the input type is not supported by the function.
+
+    Examples:
+        >>> resolve_type(int)
+        {'type': 'integer'}
+
+        >>> resolve_type(typing.List[str])
+        {'type': 'array', 'items': {'type': 'string'}}
+
+        >>> resolve_type(typing.Union[int, str])
+        {'type': ['integer', 'string']}
+
+    The function supports the following types:
+
+    - Basic types (`int`, `float`, `str`, `bool`, `None`): These are converted to the
+      corresponding JSON Schema types (`'integer'`, `'number'`, `'string'`,
+      `'boolean'`, `'null'`).
+
+    - Union types (`typing.Union`): These are converted to a JSON Schema type array,
+      where each element represents one of the types in the union.
+
+    - Array types (`typing.List`, `typing.Tuple`, `typing.Set`, etc.): These are
+      converted to a JSON Schema `'array'` type, with the `items` property
+      representing the type of the array elements.
+
+    - Literal types (`typing.Literal`): These are converted to a JSON Schema
+      `'string'` type, with an `enum` property listing the permitted literal values.
+    """
     if is_basic_type(param_type):
         return resolve_basic_type(param_type)
     elif is_union_type(param_type):
