@@ -7,9 +7,11 @@ import pytest
 from src.schemafunc import (
     NoDocstringError,
     UnsupportedLiteralTypeError,
+    UnsupportedTypeError,
     is_representable_as_js_array,
     resolve_literal_type,
     add_schemafunc,
+    resolve_type,
 )
 
 
@@ -220,3 +222,25 @@ def test_google_style_docstring():
         },
         "type": "function",
     }
+
+
+import pytest
+
+
+@pytest.mark.parametrize(
+    "typ, expected",
+    [
+        (int, {"type": "integer"}),
+        (str, {"type": "string"}),
+        (typing.Union[int, str], {"type": ["integer", "string"]}),
+        (typing.List[int], {"type": "array", "items": {"type": "integer"}}),
+        (typing.Literal[1, "two", True], {"type": "string", "enum": [1, "two", True]}),
+    ],
+)
+def test_resolve_type(typ, expected):
+    assert resolve_type(typ) == expected
+
+
+def test_resolve_type_raises_error_for_unhandled_type():
+    with pytest.raises(UnsupportedTypeError, match="Unsupported type"):
+        resolve_type(complex)
