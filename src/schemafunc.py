@@ -175,8 +175,6 @@ json_schema_types = {
     float: "number",
     str: "string",
     bool: "boolean",
-    None: "null",
-    type(None): "null",
     # Include both None and type(None) in the dictionary to handle two scenarios:
     #
     # 1. When a function parameter is annotated with None directly, such as:
@@ -190,6 +188,8 @@ json_schema_types = {
     #
     # By including both None and type(None), the code can handle both scenarios
     # correctly and avoid raising a ValueError for unsupported types.
+    None: "null",
+    type(None): "null",
 }
 
 
