@@ -193,6 +193,10 @@ json_schema_types = {
 }
 
 
+class UnsupportedTypeError(Exception):
+    pass
+
+
 def resolve_type(param_type: typing.Type) -> dict:
     if is_basic_type(param_type):
         return resolve_basic_type(param_type)
@@ -203,7 +207,7 @@ def resolve_type(param_type: typing.Type) -> dict:
     elif is_literal_type(param_type):
         return resolve_literal_type(param_type)
     else:
-        raise ValueError(f"Unsupported type: {param_type}")
+        raise UnsupportedTypeError(f"Unsupported type: {param_type}")
 
 
 def is_basic_type(param_type: typing.Type) -> bool:
