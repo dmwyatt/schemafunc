@@ -8,6 +8,8 @@ The intended use case is for LLM tool usage and output constraints.
 Future updates should include explicit support for other LLMs, though the current 
 functionality probably works with most or can be easily adapted.
 
+Supports Python 3.8+.
+
 ## Output constraints?
 
 You don't actually have to *really* want the LLM to "use a tool". You might just want 
@@ -27,7 +29,8 @@ output to match the schema of the function.
 * In my experience, writing a Python function is more ergonomic, natural, and less 
   error-prone than writing a JSON schema by hand. Even if you were to use `pydantic` 
   and create a model that models the expected schema, I still find that it's not a 
-  great mental model to map from a `BaseModel` to a function signature.
+  great mental model to map from a `BaseModel` to the type of "tool call" that OpenAI 
+  and others expect.
 
 ## Key features
 
@@ -38,6 +41,15 @@ output to match the schema of the function.
 * Easy tool kwargs for `openai` chat completions API.
   * `your_own_function.schemafunc.openai_tool_kwargs`
   * Use by unpacking the kwargs into the `openai` API call.
+* Extracts the function description from the first line of the docstring.
+* Extracts parameter descriptions from the docstring parameter list.
+* Supports Numpy-style, Google-style, and RestructuredText-style docstrings.
+
+## Installation
+    
+```bash
+pip install schemafunc
+```
 
 ## Example
 
