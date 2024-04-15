@@ -263,6 +263,33 @@ def resolve_union_type(param_type: typing.Type) -> dict:
 
 
 def is_array_type(param_type: typing.Type) -> bool:
+    """
+    Determines if the given type is representable as a JavaScript array.
+
+    This function handles both generic types and non-generic types. It uses
+    `typing.get_origin` to get the original generic type for generic types,
+    and falls back to the input type itself for non-generic types.
+
+    Args:
+        param_type (typing.Type): The type to check.
+
+    Returns:
+        bool: True if the type is representable as a JavaScript array, False otherwise.
+
+    Examples:
+        >>> is_array_type(typing.List[int])
+        True
+        >>> is_array_type(typing.Tuple[int, str, bool])
+        True
+        >>> is_array_type(list)
+        True
+        >>> is_array_type(tuple)
+        True
+        >>> is_array_type(dict)
+        False
+        >>> is_array_type(str)
+        False
+    """
     return is_representable_as_js_array(typing.get_origin(param_type) or param_type)
 
 
