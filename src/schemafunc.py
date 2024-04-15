@@ -2,6 +2,7 @@ import inspect
 import typing
 from collections.abc import Sequence, Set
 from functools import cached_property, wraps
+from types import MappingProxyType
 
 from docstring_parser import Docstring, parse
 
@@ -170,27 +171,29 @@ def generate_schema(
     return schema
 
 
-json_schema_types = {
-    int: "integer",
-    float: "number",
-    str: "string",
-    bool: "boolean",
-    # Include both None and type(None) in the dictionary to handle two scenarios:
-    #
-    # 1. When a function parameter is annotated with None directly, such as:
-    #      def func(param: None):
-    #    The None key is used to map the type to the JSON Schema type "null".
-    #
-    # 2. When a function parameter is part of a union type with None, such as:
-    #      def func(param: typing.Union[int, None]):
-    #    The type(None) key is used when resolving the union type to map the None type
-    #    to the JSON Schema type "null".
-    #
-    # By including both None and type(None), the code can handle both scenarios
-    # correctly and avoid raising a ValueError for unsupported types.
-    None: "null",
-    type(None): "null",
-}
+JSON_SCHEMA_TYPES = MappingProxyType(
+    {
+        int: "integer",
+        float: "number",
+        str: "string",
+        bool: "boolean",
+        # Include both None and type(None) in the dictionary to handle two scenarios:
+        #
+        # 1. When a function parameter is annotated with None directly, such as:
+        #      def func(param: None):
+        #    The None key is used to map the type to the JSON Schema type "null".
+        #
+        # 2. When a function parameter is part of a union type with None, such as:
+        #      def func(param: typing.Union[int, None]):
+        #    The type(None) key is used when resolving the union type to map the None type
+        #    to the JSON Schema type "null".
+        #
+        # By including both None and type(None), the code can handle both scenarios
+        # correctly and avoid raising a ValueError for unsupported types.
+        None: "null",
+        type(None): "null",
+    }
+)
 
 
 class UnsupportedTypeError(Exception):
@@ -253,11 +256,11 @@ def resolve_type(param_type: typing.Type) -> dict:
 
 
 def is_basic_type(param_type: typing.Type) -> bool:
-    return param_type in json_schema_types
+    return param_type in JSON_SCHEMA_TYPES
 
 
 def resolve_basic_type(param_type: typing.Type) -> dict:
-    return {"type": json_schema_types[param_type]}
+    return {"type": JSON_SCHEMA_TYPES[param_type]}
 
 
 def is_union_type(param_type: typing.Type) -> bool:
