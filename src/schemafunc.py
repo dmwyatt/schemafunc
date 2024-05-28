@@ -55,27 +55,103 @@ class NoDocstringError(Exception):
 
 def function_to_schema(
     func: typing.Callable,
-    require_param_descriptions: bool = True,
-    allow_bare_generic_types: bool = False,
-    ignore_undocumented_params: bool = False,
-    ignore_no_docstring: bool = False,
+    require_all_params_in_doc: bool = True,
+    require_descriptions_for_params: bool = True,
+    allow_bare_generic_types: bool = True,
+    require_short_description: bool = True,
 ) -> dict:
-    signature = inspect.signature(func)
-    docstring = parse(func.__doc__)
+    """
+    Generates a JSON schema from a given function.
 
-    if not docstring.short_description:
-        if not ignore_no_docstring:
-            raise NoDocstringError("The function must have a docstring")
+    The function's parameters and their types, as well as the descriptions provided
+    in the function's docstring, are included in the resulting schema. This provides
+    a machine-readable definition of the function's expected inputs and behaviors.
+
+    Parameters:
+        func (typing.Callable): The function to be converted into a schema.
+        require_all_params_in_doc (bool, optional): If True, an exception is raised
+            if not all parameters are documented. Defaults to True.
+        require_descriptions_for_params (bool, optional): If True, an exception is
+            raised if a documented parameter lacks a description. Defaults to True.
+        allow_bare_generic_types (bool, optional): If True, bare generic types such
+            as List, Dict are allowed. Defaults to True.
+        require_short_description (bool, optional): If True, an exception is raised
+            if the function docstring lacks a short description. Defaults to True.
+
+    Returns:
+        dict: A representation of the function as a JSON schema.
+
+    Raises:
+        NoDocstringError: Raised if the function lacks a docstring and
+            require_all_params_in_doc is True.
+        NoShortDescriptionError: Raised if function docstring lacks a short
+            description and require_short_description is True.
+        ValueError: Raised if a parameter lacks a type annotation.
+        BareGenericTypeError: Raised if a parameter has a bare generic type and
+            allow_bare_generic_types is False.
+        ParameterNotDocumentedError: Raised if a parameter is not documented in the
+            docstring and require_all_params_in_doc is True.
+        ParameterMissingDescriptionError: Raised if a parameter is documented but
+            lacks a description and require_descriptions_for_params is True.
+
+    Examples:
+        >>> def example_function(param1: int):
+        ...    '''
+        ...    Simple example function.
+        ...    Args:
+        ...        param1 (int): The first parameter.
+        ...    '''
+        ...    pass
+
+
+        >>> function_to_schema(example_function)
+        {'type': 'function', 'function': {'name': 'example_function', 'description': 'Simple example function.', 'parameters': {'type': 'object', 'properties': {'param1': {'type': 'integer', 'description': 'The first parameter.'}}, 'required': ['param1']}}}
+    """
+    signature = inspect.signature(func)
+    docstring = parse(func.__doc__) if func.__doc__ else None
+
+    if (
+        require_all_params_in_doc
+        or require_descriptions_for_params
+        or require_short_description
+    ) and docstring is None:
+        raise NoDocstringError("The function must have a docstring")
+
+    if require_short_description and not docstring.short_description:
+        raise NoShortDescriptionError(
+            "The function must have a short description in the docstring"
+        )
+
+    if require_all_params_in_doc and signature.parameters:
+        # list of missing parameters. Missing if not in docstring
+        missing_params = [
+            param_name
+            for param_name in signature.parameters
+            if param_name not in [p.arg_name for p in getattr(docstring, "params", [])]
+        ]
+        if missing_params:
+            raise ParameterNotDocumentedError(
+                "The following parameters are not documented in the docstring: "
+                + ", ".join(missing_params)
+            )
+
+    if require_descriptions_for_params:
+        # list of parameters with missing descriptions
+        missing_desc_params = [
+            param.arg_name for param in docstring.params if not param.description
+        ]
+
+        if missing_desc_params:
+            raise ParameterMissingDescriptionError(
+                f"The following parameters are missing descriptions in the docstring: {', '.join(missing_desc_params)}"
+            )
 
     parameters = process_parameters(
         signature,
         docstring,
-        require_param_descriptions,
         allow_bare_generic_types,
-        ignore_undocumented_params,
-        ignore_no_docstring,
     )
-    return generate_schema(func, docstring, parameters, ignore_no_docstring)
+    return generate_schema(func, docstring, parameters)
 
 
 class ParameterNotDocumentedError(Exception):
@@ -89,11 +165,62 @@ class ParameterMissingDescriptionError(Exception):
 def process_parameters(
     signature: inspect.Signature,
     docstring: Docstring,
-    require_param_descriptions: bool,
     allow_bare_generic_types: bool,
-    ignore_undocumented_params: bool,
-    ignore_no_docstring: bool,
-) -> dict:
+) -> typing.Dict[str, typing.Any]:
+    """
+    Generates JSON schema representation of the parameters of a function.
+
+    This function systematically processes the parameters of a given function,
+    guided by their type annotations and any related documentation provided
+    within the function's docstring, and constructs a comprehensive JSON schema
+    representation.
+
+    Parameters:
+        signature (inspect.Signature): A Signature object of the function
+            to process.
+        docstring (Docstring): A parsed docstring object which includes
+            parameter's documentation.
+        allow_bare_generic_types (bool): A boolean parameter that indicates
+            whether to allow bare generic types (like List, Dict) without a
+            specific item type. If True, it will instantiate the item type
+            as an empty object. If False, it will raise a BareGenericTypeError
+            for any parameter having a bare generic type.
+
+    Returns:
+        dict: A dictionary object that represents the JSON schema of the
+            parameters of the function. Each entry represents a parameter,
+            with its name as the key and the associated JSON schema as the
+            value.
+
+    Raises:
+        ValueError: If a parameter lacks a type annotation.
+        BareGenericTypeError: If allow_bare_generic_types is False and a
+            parameter has a bare generic type.
+
+    Example:
+        >>> from inspect import signature
+        >>> from docstring_parser import parse
+
+        >>> def example_function(param: int):
+        ...     '''
+        ...     Example function.
+        ...
+        ...     Args:
+        ...         param: The first parameter.
+        ...     '''
+        ...     pass
+        >>> sig = signature(example_function)
+        >>> doc = parse(example_function.__doc__)
+        >>> process_parameters(sig, doc, allow_bare_generic_types=False)
+        {'param': {'type': 'integer', 'description': 'The first parameter.'}}
+
+    Note:
+        Always provide type annotations for parameters in the function's
+        signature. The function relies on these annotations to accurately define
+        the JSON schema. The function also leverages the related documentation
+        within the function's docstring to enhance the precision of the results,
+        providing expanded context when required.
+    """
     parameters = {}
 
     for name, param in signature.parameters.items():
@@ -101,8 +228,10 @@ def process_parameters(
             raise ValueError(f"Parameter {name} must have a type annotation")
 
         param_type = param.annotation
-        param_docstring = next(
-            (p for p in docstring.params if p.arg_name == name), None
+        param_docstring = (
+            next((p for p in docstring.params if p.arg_name == name), None)
+            if docstring
+            else None
         )
 
         try:
@@ -113,18 +242,8 @@ def process_parameters(
             else:
                 raise
 
-        if param_docstring is None:
-            if not ignore_undocumented_params and not ignore_no_docstring:
-                raise ParameterNotDocumentedError(
-                    f"Parameter {name} is not documented in the docstring"
-                )
-        else:
-            if require_param_descriptions and not param_docstring.description:
-                raise ParameterMissingDescriptionError(
-                    f"Parameter {name} is missing a description in the docstring"
-                )
-            if param_docstring.description:
-                param_schema["description"] = param_docstring.description
+        if param_docstring and param_docstring.description:
+            param_schema["description"] = param_docstring.description
 
         if param.default != inspect.Parameter.empty and param.default is not None:
             param_schema["default"] = param.default
@@ -142,20 +261,12 @@ def generate_schema(
     func: typing.Callable,
     docstring: Docstring,
     parameters: dict,
-    ignore_no_docstring: bool,
 ) -> dict:
-    if not docstring.short_description and not ignore_no_docstring:
-        raise NoShortDescriptionError(
-            "The function must have a short description in the docstring"
-        )
-
     schema = {
         "type": "function",
         "function": {
             "name": func.__name__,
-            "description": docstring.short_description
-            if docstring.short_description
-            else "",
+            "description": getattr(docstring, "description", "").strip(),
             "parameters": {
                 "type": "object",
                 "properties": parameters,
