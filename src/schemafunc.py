@@ -27,7 +27,18 @@ class FunctionMetadata:
         }
 
 
-def add_schemafunc(_func=None, **schema_kwargs):
+P = typing.ParamSpec("P")
+R = typing.TypeVar("R")
+
+
+class HasSchemaFuncAttribute(typing.Protocol[P, R]):
+    schemafunc: FunctionMetadata
+
+    def __call__(self, *args: P.args, **kwargs: P.kwargs) -> R:
+        ...
+
+
+def add_schemafunc(_func=None, **schema_kwargs) -> HasSchemaFuncAttribute[P, R]:
     def decorator(func):
         @wraps(func)
         def wrapper(*args, **kwargs):
@@ -39,6 +50,7 @@ def add_schemafunc(_func=None, **schema_kwargs):
             # force evaluation of the cached properties so that we raise errors like
             # `NoDocstringError` at definition time
             # TODO: Maybe just drop the cached properties functionality?
+            # noinspection PyStatementEffect
             wrapper.schemafunc.openai_tool_kwargs
 
         return wrapper
