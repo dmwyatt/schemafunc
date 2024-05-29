@@ -1,34 +1,30 @@
 import inspect
 import typing
 from collections.abc import Sequence, Set
-from functools import cached_property, wraps
+from functools import wraps
 from types import MappingProxyType
 
 from docstring_parser import Docstring, parse
 
 
 class FunctionMetadata:
-    def __init__(self, func, **schema_kwargs):
+    def __init__(
+        self, func: typing.Callable[..., typing.Any], **schema_kwargs: typing.Any
+    ):
         self.func = func
         self.schema_kwargs = schema_kwargs
-
-    @cached_property
-    def schema(self):
-        return function_to_schema(self.func, **self.schema_kwargs)
-
-    @cached_property
-    def openai_tool_kwargs(self):
-        return {
+        self.schema = function_to_schema(self.func, **self.schema_kwargs)
+        self.openai_tool_kwargs = {
             "tools": [self.schema],
             "tool_choice": {
                 "type": "function",
-                "function": {"name": self.schema["function"]["name"]},
+                "function": {"name": self.schema.get("function", {}).get("name")},
             },
         }
 
 
 P = typing.ParamSpec("P")
-R = typing.TypeVar("R")
+R = typing.TypeVar("R", covariant=True)
 
 
 class HasSchemaFuncAttribute(typing.Protocol[P, R]):
@@ -38,22 +34,20 @@ class HasSchemaFuncAttribute(typing.Protocol[P, R]):
         ...
 
 
-def add_schemafunc(_func=None, **schema_kwargs) -> HasSchemaFuncAttribute[P, R]:
-    def decorator(func):
+DecType = typing.Callable[[typing.Callable[P, R]], HasSchemaFuncAttribute[P, R]]
+
+
+def add_schemafunc(
+    _func: typing.Optional[typing.Callable[P, R]] = None, **schema_kwargs: typing.Any
+) -> typing.Union[DecType[P, R], HasSchemaFuncAttribute[P, R]]:
+    def decorator(func: typing.Callable[P, R]) -> HasSchemaFuncAttribute[P, R]:
         @wraps(func)
-        def wrapper(*args, **kwargs):
+        def wrapper(*args: P.args, **kwargs: P.kwargs) -> R:
             return func(*args, **kwargs)
 
-        if not hasattr(wrapper, "function_metadata"):
-            wrapper.schemafunc = FunctionMetadata(func, **schema_kwargs)
+        setattr(wrapper, "schemafunc", FunctionMetadata(func, **schema_kwargs))
 
-            # force evaluation of the cached properties so that we raise errors like
-            # `NoDocstringError` at definition time
-            # TODO: Maybe just drop the cached properties functionality?
-            # noinspection PyStatementEffect
-            wrapper.schemafunc.openai_tool_kwargs
-
-        return wrapper
+        return typing.cast(HasSchemaFuncAttribute[P, R], wrapper)
 
     if _func is not None:
         return decorator(_func)
