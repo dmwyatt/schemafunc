@@ -1,4 +1,5 @@
 import inspect
+import types
 import typing
 from collections.abc import Sequence, Set
 from functools import wraps
@@ -392,7 +393,7 @@ def resolve_basic_type(param_type: typing.Type) -> dict:
 
 
 def is_union_type(param_type: typing.Type) -> bool:
-    return typing.get_origin(param_type) == typing.Union
+    return typing.get_origin(param_type) in [typing.Union, types.UnionType]
 
 
 def resolve_union_type(param_type: typing.Type) -> dict:
@@ -591,6 +592,7 @@ def is_representable_as_js_array(typ: typing.Type) -> bool:
 
 def is_dict_type(param_type: typing.Type) -> bool:
     return typing.get_origin(param_type) == dict
+
 
 def resolve_dict_type(param_type: typing.Type) -> dict:
     """
