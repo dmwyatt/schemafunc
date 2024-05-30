@@ -348,7 +348,7 @@ def resolve_type(param_type: typing.Type) -> dict:
         >>> resolve_type(typing.Dict[str, int])
         {'type': 'object', 'additionalProperties': {'type': 'integer'}}
 
-        >>> class MyTypedDict(TypedDict):
+        >>> class MyTypedDict(typing.TypedDict):
         ...     name: str
         ...     age: int
         ...
