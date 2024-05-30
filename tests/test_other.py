@@ -291,3 +291,75 @@ def test_resolve_type_dict_dict_values():
             "additionalProperties": {"type": "integer"},
         },
     }
+
+
+def test_resolve_type_typed_dict():
+    class MyTypedDict(typing.TypedDict):
+        name: str
+        age: int
+
+    assert resolve_type(MyTypedDict) == {
+        "type": "object",
+        "properties": {
+            "name": {"type": "string"},
+            "age": {"type": "integer"},
+        },
+        "required": ["name", "age"],
+        "additionalProperties": False,
+    }
+
+
+def test_resolve_type_typed_dict_optional_fields():
+    class MyTypedDict(typing.TypedDict, total=False):
+        name: str
+        age: int
+
+    assert resolve_type(MyTypedDict) == {
+        "type": "object",
+        "properties": {
+            "name": {"type": "string"},
+            "age": {"type": "integer"},
+        },
+        "required": [],
+        "additionalProperties": False,
+    }
+
+
+def test_resolve_type_typed_dict_nested():
+    class NestedTypedDict(typing.TypedDict):
+        value: int
+
+    class MyTypedDict(typing.TypedDict):
+        nested: NestedTypedDict
+        other: str
+
+    assert resolve_type(MyTypedDict) == {
+        "type": "object",
+        "properties": {
+            "nested": {
+                "type": "object",
+                "properties": {
+                    "value": {"type": "integer"},
+                },
+                "required": ["value"],
+                "additionalProperties": False,
+            },
+            "other": {"type": "string"},
+        },
+        "required": ["nested", "other"],
+        "additionalProperties": False,
+    }
+
+
+def test_resolve_type_typed_dict_union():
+    class MyTypedDict(typing.TypedDict):
+        value: typing.Union[int, str]
+
+    assert resolve_type(MyTypedDict) == {
+        "type": "object",
+        "properties": {
+            "value": {"type": ["integer", "string"]},
+        },
+        "required": ["value"],
+        "additionalProperties": False,
+    }

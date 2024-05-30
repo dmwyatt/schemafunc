@@ -323,8 +323,8 @@ def resolve_type(param_type: typing.Type) -> dict:
     Resolves a Python type into a JSON Schema dictionary.
 
     This function takes a Python type (such as `int`, `str`, `typing.Union`,
-    `typing.List`, `typing.Dict`, etc.) and returns a dictionary representing the
-    equivalent JSON Schema type.
+    `typing.List`, `typing.Dict`, `typing.TypedDict`, etc.) and returns a dictionary
+    representing the equivalent JSON Schema type.
 
     Args:
         param_type (typing.Type): The Python type to resolve.
@@ -348,6 +348,13 @@ def resolve_type(param_type: typing.Type) -> dict:
         >>> resolve_type(typing.Dict[str, int])
         {'type': 'object', 'additionalProperties': {'type': 'integer'}}
 
+        >>> class MyTypedDict(TypedDict):
+        ...     name: str
+        ...     age: int
+        ...
+        >>> resolve_type(MyTypedDict)
+        {'type': 'object', 'properties': {'name': {'type': 'string'}, 'age': {'type': 'integer'}}, 'required': ['name', 'age'], 'additionalProperties': False}
+
     The function supports the following types:
 
     - Basic types (`int`, `float`, `str`, `bool`, `None`): These are converted to the
@@ -367,6 +374,11 @@ def resolve_type(param_type: typing.Type) -> dict:
     - Dictionary types (`typing.Dict`): These are converted to a JSON Schema
       `'object'` type, with the `additionalProperties` property representing the
       type of the dictionary values.
+
+    - TypedDict types (`typing.TypedDict`): These are converted to a JSON Schema
+      `'object'` type, with the `properties` property representing the fields of the
+      TypedDict and their types, the `required` property listing the required fields,
+      and `additionalProperties` set to `False`.
     """
     if param_type is typing.Any:
         return {}
@@ -378,8 +390,11 @@ def resolve_type(param_type: typing.Type) -> dict:
         return resolve_array_type(param_type)
     elif is_literal_type(param_type):
         return resolve_literal_type(param_type)
+    elif is_typed_dict(param_type):
+        return resolve_typed_dict(param_type)
     elif is_dict_type(param_type):
         return resolve_dict_type(param_type)
+
     else:
         raise UnsupportedTypeError(f"Unsupported type: {param_type}")
 
@@ -617,4 +632,23 @@ def resolve_dict_type(param_type: typing.Type) -> dict:
     return {
         "type": "object",
         "additionalProperties": resolve_type(value_type),
+    }
+
+
+def is_typed_dict(param_type: typing.Type) -> bool:
+    return isinstance(param_type, typing._TypedDictMeta)
+
+
+def resolve_typed_dict(param_type: typing.Type[typing.TypedDict]) -> dict:
+    properties = {}
+    required = []
+    for field_name, field_type in param_type.__annotations__.items():
+        properties[field_name] = resolve_type(field_type)
+        if field_name in param_type.__required_keys__:
+            required.append(field_name)
+    return {
+        "type": "object",
+        "properties": properties,
+        "required": required,
+        "additionalProperties": False,
     }
