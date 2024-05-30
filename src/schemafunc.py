@@ -322,8 +322,8 @@ def resolve_type(param_type: typing.Type) -> dict:
     Resolves a Python type into a JSON Schema dictionary.
 
     This function takes a Python type (such as `int`, `str`, `typing.Union`,
-    `typing.List`, etc.) and returns a dictionary representing the equivalent
-    JSON Schema type.
+    `typing.List`, `typing.Dict`, etc.) and returns a dictionary representing the
+    equivalent JSON Schema type.
 
     Args:
         param_type (typing.Type): The Python type to resolve.
@@ -344,6 +344,9 @@ def resolve_type(param_type: typing.Type) -> dict:
         >>> resolve_type(typing.Union[int, str])
         {'type': ['integer', 'string']}
 
+        >>> resolve_type(typing.Dict[str, int])
+        {'type': 'object', 'additionalProperties': {'type': 'integer'}}
+
     The function supports the following types:
 
     - Basic types (`int`, `float`, `str`, `bool`, `None`): These are converted to the
@@ -359,6 +362,10 @@ def resolve_type(param_type: typing.Type) -> dict:
 
     - Literal types (`typing.Literal`): These are converted to a JSON Schema
       `'string'` type, with an `enum` property listing the permitted literal values.
+
+    - Dictionary types (`typing.Dict`): These are converted to a JSON Schema
+      `'object'` type, with the `additionalProperties` property representing the
+      type of the dictionary values.
     """
     if is_basic_type(param_type):
         return resolve_basic_type(param_type)
@@ -368,6 +375,8 @@ def resolve_type(param_type: typing.Type) -> dict:
         return resolve_array_type(param_type)
     elif is_literal_type(param_type):
         return resolve_literal_type(param_type)
+    elif is_dict_type(param_type):
+        return resolve_dict_type(param_type)
     else:
         raise UnsupportedTypeError(f"Unsupported type: {param_type}")
 
@@ -576,3 +585,14 @@ def is_representable_as_js_array(typ: typing.Type) -> bool:
         # If the type is not a class, then nothing to check.
         return False
     return False
+
+
+def is_dict_type(param_type: typing.Type) -> bool:
+    return typing.get_origin(param_type) == dict
+
+def resolve_dict_type(param_type: typing.Type) -> dict:
+    key_type, value_type = typing.get_args(param_type)
+    return {
+        "type": "object",
+        "additionalProperties": resolve_type(value_type),
+    }

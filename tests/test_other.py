@@ -244,3 +244,28 @@ def test_resolve_type(typ, expected):
 def test_resolve_type_raises_error_for_unhandled_type():
     with pytest.raises(UnsupportedTypeError, match="Unsupported type"):
         resolve_type(complex)
+
+
+def test_resolve_type_dict_str_int():
+    assert resolve_type(typing.Dict[str, int]) == {
+        "type": "object",
+        "additionalProperties": {"type": "integer"},
+    }
+
+def test_resolve_type_dict_int_str():
+    assert resolve_type(typing.Dict[int, str]) == {
+        "type": "object",
+        "additionalProperties": {"type": "string"},
+    }
+
+def test_resolve_type_dict_nested():
+    assert resolve_type(typing.Dict[str, typing.List[int]]) == {
+        "type": "object",
+        "additionalProperties": {"type": "array", "items": {"type": "integer"}},
+    }
+
+def test_resolve_type_dict_union():
+    assert resolve_type(typing.Dict[str, typing.Union[int, str]]) == {
+        "type": "object",
+        "additionalProperties": {"type": ["integer", "string"]},
+    }
