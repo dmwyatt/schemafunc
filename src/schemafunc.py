@@ -367,6 +367,8 @@ def resolve_type(param_type: typing.Type) -> dict:
       `'object'` type, with the `additionalProperties` property representing the
       type of the dictionary values.
     """
+    if param_type is typing.Any:
+        return {}
     if is_basic_type(param_type):
         return resolve_basic_type(param_type)
     elif is_union_type(param_type):
@@ -591,7 +593,25 @@ def is_dict_type(param_type: typing.Type) -> bool:
     return typing.get_origin(param_type) == dict
 
 def resolve_dict_type(param_type: typing.Type) -> dict:
+    """
+    Resolves a dictionary type into a JSON schema.
+
+    This function expects the key type of the dictionary to be a string, as required
+    by the JSON specification. If the key type is not a string, a UnsupportedTypeError is raised.
+    The value type is resolved using the `resolve_type` function and included in the schema.
+
+    Args:
+        param_type (typing.Type): The dictionary type to resolve.
+
+    Returns:
+        dict: A JSON schema representing the dictionary type.
+
+    Raises:
+        UnsupportedTypeError: If the key type of the dictionary is not a string.
+    """
     key_type, value_type = typing.get_args(param_type)
+    if key_type != str:
+        raise UnsupportedTypeError(f"Dictionary keys must be strings, not {key_type}")
     return {
         "type": "object",
         "additionalProperties": resolve_type(value_type),

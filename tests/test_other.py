@@ -252,11 +252,6 @@ def test_resolve_type_dict_str_int():
         "additionalProperties": {"type": "integer"},
     }
 
-def test_resolve_type_dict_int_str():
-    assert resolve_type(typing.Dict[int, str]) == {
-        "type": "object",
-        "additionalProperties": {"type": "string"},
-    }
 
 def test_resolve_type_dict_nested():
     assert resolve_type(typing.Dict[str, typing.List[int]]) == {
@@ -264,8 +259,35 @@ def test_resolve_type_dict_nested():
         "additionalProperties": {"type": "array", "items": {"type": "integer"}},
     }
 
+
 def test_resolve_type_dict_union():
     assert resolve_type(typing.Dict[str, typing.Union[int, str]]) == {
         "type": "object",
         "additionalProperties": {"type": ["integer", "string"]},
+    }
+
+
+def test_resolve_type_any():
+    assert resolve_type(typing.Any) == {}
+
+
+def test_resolve_type_dict_any_value():
+    assert resolve_type(typing.Dict[str, typing.Any]) == {
+        "type": "object",
+        "additionalProperties": {},
+    }
+
+
+def test_resolve_type_dict_non_string_key():
+    with pytest.raises(UnsupportedTypeError, match="Dictionary keys must be strings"):
+        resolve_type(typing.Dict[int, str])
+
+
+def test_resolve_type_dict_dict_values():
+    assert resolve_type(typing.Dict[str, typing.Dict[str, int]]) == {
+        "type": "object",
+        "additionalProperties": {
+            "type": "object",
+            "additionalProperties": {"type": "integer"},
+        },
     }
