@@ -1,11 +1,17 @@
 import inspect
-import types
 import typing
-from collections.abc import Sequence, Set
 from functools import wraps
-from types import MappingProxyType
 
 from docstring_parser import Docstring, parse
+
+from exceptions import (
+    BareGenericTypeError,
+    NoDocstringError,
+    NoShortDescriptionError,
+    ParameterMissingDescriptionError,
+    ParameterNotDocumentedError,
+)
+from type_registry import resolve_type
 
 P = typing.ParamSpec("P")
 R = typing.TypeVar("R", covariant=True)
@@ -63,10 +69,6 @@ def add_schemafunc(
         return decorator(_func)
     else:
         return decorator
-
-
-class NoDocstringError(Exception):
-    pass
 
 
 def function_to_schema(
@@ -170,14 +172,6 @@ def function_to_schema(
     return generate_schema(func, docstring, parameters)
 
 
-class ParameterNotDocumentedError(Exception):
-    pass
-
-
-class ParameterMissingDescriptionError(Exception):
-    pass
-
-
 def process_parameters(
     signature: inspect.Signature,
     docstring: Docstring,
@@ -269,10 +263,6 @@ def process_parameters(
     return parameters
 
 
-class NoShortDescriptionError(Exception):
-    pass
-
-
 def generate_schema(
     func: typing.Callable,
     docstring: Docstring,
@@ -296,368 +286,3 @@ def generate_schema(
     }
 
     return schema
-
-
-JSON_SCHEMA_TYPES = MappingProxyType(
-    {
-        int: "integer",
-        float: "number",
-        str: "string",
-        bool: "boolean",
-        # Include both None and type(None) in the dictionary to handle two scenarios:
-        #
-        # 1. When a function parameter is annotated with None directly, such as:
-        #      def func(param: None):
-        #    The None key is used to map the type to the JSON Schema type "null".
-        #
-        # 2. When a function parameter is part of a union type with None, such as:
-        #      def func(param: typing.Union[int, None]):
-        #    The type(None) key is used when resolving the union type to map the None type
-        #    to the JSON Schema type "null".
-        #
-        # By including both None and type(None), the code can handle both scenarios
-        # correctly and avoid raising a ValueError for unsupported types.
-        None: "null",
-        type(None): "null",
-    }
-)
-
-
-class UnsupportedTypeError(Exception):
-    pass
-
-
-def resolve_type(param_type: typing.Type) -> dict:
-    """
-    Resolves a Python type into a JSON Schema dictionary.
-
-    This function takes a Python type (such as `int`, `str`, `typing.Union`,
-    `typing.List`, `typing.Dict`, `typing.TypedDict`, etc.) and returns a dictionary
-    representing the equivalent JSON Schema type.
-
-    Args:
-        param_type (typing.Type): The Python type to resolve.
-
-    Returns:
-        dict: A dictionary representing the JSON Schema equivalent of the input type.
-
-    Raises:
-        UnsupportedTypeError: If the input type is not supported by the function.
-
-    Examples:
-        >>> resolve_type(int)
-        {'type': 'integer'}
-
-        >>> resolve_type(typing.List[str])
-        {'type': 'array', 'items': {'type': 'string'}}
-
-        >>> resolve_type(typing.Union[int, str])
-        {'type': ['integer', 'string']}
-
-        >>> resolve_type(typing.Dict[str, int])
-        {'type': 'object', 'additionalProperties': {'type': 'integer'}}
-
-        >>> class MyTypedDict(typing.TypedDict):
-        ...     name: str
-        ...     age: int
-        ...
-        >>> resolve_type(MyTypedDict)
-        {'type': 'object', 'properties': {'name': {'type': 'string'}, 'age': {'type': 'integer'}}, 'required': ['name', 'age'], 'additionalProperties': False}
-
-    The function supports the following types:
-
-    - Basic types (`int`, `float`, `str`, `bool`, `None`): These are converted to the
-      corresponding JSON Schema types (`'integer'`, `'number'`, `'string'`,
-      `'boolean'`, `'null'`).
-
-    - Union types (`typing.Union`): These are converted to a JSON Schema type array,
-      where each element represents one of the types in the union.
-
-    - Array types (`typing.List`, `typing.Tuple`, `typing.Set`, etc.): These are
-      converted to a JSON Schema `'array'` type, with the `items` property
-      representing the type of the array elements.
-
-    - Literal types (`typing.Literal`): These are converted to a JSON Schema
-      `'string'` type, with an `enum` property listing the permitted literal values.
-
-    - Dictionary types (`typing.Dict`): These are converted to a JSON Schema
-      `'object'` type, with the `additionalProperties` property representing the
-      type of the dictionary values.
-
-    - TypedDict types (`typing.TypedDict`): These are converted to a JSON Schema
-      `'object'` type, with the `properties` property representing the fields of the
-      TypedDict and their types, the `required` property listing the required fields,
-      and `additionalProperties` set to `False`.
-    """
-    if param_type is typing.Any:
-        return {}
-    if is_basic_type(param_type):
-        return resolve_basic_type(param_type)
-    elif is_union_type(param_type):
-        return resolve_union_type(param_type)
-    elif is_array_type(param_type):
-        return resolve_array_type(param_type)
-    elif is_literal_type(param_type):
-        return resolve_literal_type(param_type)
-    elif is_typed_dict(param_type):
-        return resolve_typed_dict(param_type)
-    elif is_dict_type(param_type):
-        return resolve_dict_type(param_type)
-
-    else:
-        raise UnsupportedTypeError(f"Unsupported type: {param_type}")
-
-
-def is_basic_type(param_type: typing.Type) -> bool:
-    return param_type in JSON_SCHEMA_TYPES
-
-
-def resolve_basic_type(param_type: typing.Type) -> dict:
-    return {"type": JSON_SCHEMA_TYPES[param_type]}
-
-
-def is_union_type(param_type: typing.Type) -> bool:
-    return typing.get_origin(param_type) in [typing.Union, types.UnionType]
-
-
-def resolve_union_type(param_type: typing.Type) -> dict:
-    """
-    Resolves a union type into a JSON schema.
-
-    Given a Python type that represents a union (i.e., a type that can be one of
-    several types), this function returns a JSON schema that represents the union.
-
-    Args:
-        param_type (typing.Type): The union type to resolve.
-
-    Returns:
-        dict: A JSON schema representing the union type.
-
-    Examples:
-        Resolve a union of int and str:
-
-        >>> import typing
-        >>> resolve_union_type(typing.Union[int, str])
-        {'type': ['integer', 'string']}
-
-        Resolve a union of bool and None:
-
-        # >>> resolve_union_type(typing.Union[bool, None])
-        {'type': ['boolean', 'null']}
-
-        Resolve a union of int, str, and list of int:
-
-        >>> resolve_union_type(typing.Union[int, str, typing.List[int]])
-        {'type': ['integer', 'string', 'array'], 'items': {'type': 'integer'}}
-    """
-    union_types = typing.get_args(param_type)
-    resolved_types = [resolve_type(t) for t in union_types]
-
-    schema = {"type": []}
-    for resolved_type in resolved_types:
-        if resolved_type["type"] == "array":
-            schema["type"].append("array")
-            schema["items"] = resolved_type["items"]
-        else:
-            schema["type"].append(resolved_type["type"])
-
-    return schema
-
-
-def is_array_type(param_type: typing.Type) -> bool:
-    """
-    Determines if the given type is representable as a JavaScript array.
-
-    This function handles both generic types and non-generic types. It uses
-    `typing.get_origin` to get the original generic type for generic types,
-    and falls back to the input type itself for non-generic types.
-
-    Args:
-        param_type (typing.Type): The type to check.
-
-    Returns:
-        bool: True if the type is representable as a JavaScript array, False otherwise.
-
-    Examples:
-        >>> is_array_type(typing.List[int])
-        True
-        >>> is_array_type(typing.Tuple[int, str, bool])
-        True
-        >>> is_array_type(list)
-        True
-        >>> is_array_type(tuple)
-        True
-        >>> is_array_type(dict)
-        False
-        >>> is_array_type(str)
-        False
-    """
-    return is_representable_as_js_array(typing.get_origin(param_type) or param_type)
-
-
-class BareGenericTypeError(ValueError):
-    pass
-
-
-def resolve_array_type(param_type: typing.Type) -> dict:
-    """
-    Returns a dictionary describing the given array-like generic type.
-
-    If an unsubscripted generic type (like "list" or "List" without a specified item
-    type) is passed to this function, it raises a `BareGenericTypeError`.
-
-    Args:
-        param_type (typing.Type): The array-like generic type to be analyzed.
-
-    Returns:
-
-        dict: A dictionary containing the resolved information about the array-like
-              generic type. It includes two keys, 'type', and 'items'. 'type' value
-              is always 'array', and 'items' value is the resolved item type's name.
-
-    Raises:
-        BareGenericTypeError: If the param_type is an unsubscripted generic.
-
-    Example:
-        >>> resolve_array_type(typing.List[int])  # `typing` module style
-        {'type': 'array', 'items': {'type': 'integer'}}
-
-    Note:
-        Be sure to specify the item type when providing the array-like generic type,
-        as unsubscripted generics will raise `BareGenericTypeError`.
-
-    """
-    item_type = typing.get_args(param_type)
-    if item_type:
-        resolved_item_type = resolve_type(item_type[0])
-    else:
-        raise BareGenericTypeError(f"Bare generic type {param_type} is not allowed.")
-    return {"type": "array", "items": resolved_item_type}
-
-
-def is_literal_type(param_type: typing.Type) -> bool:
-    return typing.get_origin(param_type) == typing.Literal
-
-
-class UnsupportedLiteralTypeError(Exception):
-    pass
-
-
-def resolve_literal_type(param_type: typing.Type) -> dict:
-    """
-    Resolves literal type parameters into structured definitions.
-
-    Given a typing.Type parameter object that is expected to contain Literal values,
-    this function extracts these Literal values and structures them into a dictionary
-    that represents these values as string type and a list of their enumerated value
-    counterparts.
-
-    Args:
-        param_type (typing.Type): Expected to be a typing.Literal type containing
-            intrinsic literal values (int, float, str, bool, None).
-
-    Returns:
-        dict: A dictionary defining the type as 'string' (irrespective of the input
-            literal types), and an 'enum' list of values which contains the literal
-            values.
-
-    Raises:
-        UnsupportedLiteralTypeError: If any of the literal values are not of the
-            supported literal types (int, float, str, bool, None).
-
-    Example:
-        >>> resolve_literal_type(typing.Literal[1, "two", True, None])
-        {'type': 'string', 'enum': [1, 'two', True, None]}
-    """
-    literal_values = typing.get_args(param_type)
-    supported_types = (int, float, str, bool, type(None))
-    if all(isinstance(v, supported_types) for v in literal_values):
-        return {"type": "string", "enum": list(literal_values)}
-    else:
-        raise UnsupportedLiteralTypeError(
-            f"Unsupported Literal values: {literal_values}"
-        )
-
-
-def is_representable_as_js_array(typ: typing.Type) -> bool:
-    """
-    Determines if a given type can be accurately represented as a JavaScript array.
-
-    This function returns true if the provided type holds an ordered sequence of
-    elements that can be accurately represented as a JavaScript array. Otherwise,
-    it returns false.
-
-    Args:
-        typ (Type): The Python data type to evaluate.
-
-    Returns:
-        bool: Indicates whether the input type can be represented as a JavaScript array.
-
-    Examples:
-        >>> is_representable_as_js_array(list)
-        True
-
-        >>> is_representable_as_js_array(str)
-        False
-
-    """
-    try:
-        # Check if it's an iterable type, excluding specific types
-        # that don't map well to JS arrays.
-        if issubclass(typ, (Sequence, Set)) and not issubclass(
-            typ, (str, bytes, bytearray, dict)
-        ):
-            return True
-    except TypeError:
-        # If the type is not a class, then nothing to check.
-        return False
-    return False
-
-
-def is_dict_type(param_type: typing.Type) -> bool:
-    return typing.get_origin(param_type) == dict
-
-
-def resolve_dict_type(param_type: typing.Type) -> dict:
-    """
-    Resolves a dictionary type into a JSON schema.
-
-    This function expects the key type of the dictionary to be a string, as required
-    by the JSON specification. If the key type is not a string, a UnsupportedTypeError is raised.
-    The value type is resolved using the `resolve_type` function and included in the schema.
-
-    Args:
-        param_type (typing.Type): The dictionary type to resolve.
-
-    Returns:
-        dict: A JSON schema representing the dictionary type.
-
-    Raises:
-        UnsupportedTypeError: If the key type of the dictionary is not a string.
-    """
-    key_type, value_type = typing.get_args(param_type)
-    if key_type != str:
-        raise UnsupportedTypeError(f"Dictionary keys must be strings, not {key_type}")
-    return {
-        "type": "object",
-        "additionalProperties": resolve_type(value_type),
-    }
-
-
-def is_typed_dict(param_type: typing.Type) -> bool:
-    return isinstance(param_type, typing._TypedDictMeta)
-
-
-def resolve_typed_dict(param_type: typing.Type[typing.TypedDict]) -> dict:
-    properties = {}
-    required = []
-    for field_name, field_type in param_type.__annotations__.items():
-        properties[field_name] = resolve_type(field_type)
-        if field_name in param_type.__required_keys__:
-            required.append(field_name)
-    return {
-        "type": "object",
-        "properties": properties,
-        "required": required,
-        "additionalProperties": False,
-    }

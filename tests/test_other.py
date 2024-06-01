@@ -4,15 +4,16 @@ from unittest.mock import ANY, patch
 
 import pytest
 
-from src.schemafunc import (
+from exceptions import (
     NoDocstringError,
     UnsupportedLiteralTypeError,
     UnsupportedTypeError,
-    is_representable_as_js_array,
-    resolve_literal_type,
-    add_schemafunc,
-    resolve_type,
 )
+from src.schemafunc import (
+    add_schemafunc,
+)
+from type_registry import resolve_type
+from type_registry.array import is_representable_as_js_array
 
 
 @pytest.mark.parametrize(
@@ -32,31 +33,6 @@ from src.schemafunc import (
 )
 def test_is_representable_as_js_array(typ, expected):
     assert is_representable_as_js_array(typ) == expected
-
-
-@pytest.mark.parametrize(
-    "param_type, expected",
-    [
-        (
-            typing.Literal[1, "two", True, None],
-            {"type": "string", "enum": [1, "two", True, None]},
-        ),
-        (typing.Literal[1, 2, 3], {"type": "string", "enum": [1, 2, 3]}),
-        (typing.Literal["a", "b", "c"], {"type": "string", "enum": ["a", "b", "c"]}),
-        (typing.Literal[True, False], {"type": "string", "enum": [True, False]}),
-        (typing.Literal[None], {"type": "string", "enum": [None]}),
-        (
-            typing.Literal[1, "two", True, None, object()],
-            pytest.raises(UnsupportedLiteralTypeError),
-        ),
-    ],
-)
-def test_resolve_literal_type(param_type, expected):
-    if isinstance(expected, dict):
-        assert resolve_literal_type(param_type) == expected
-    else:
-        with expected:
-            resolve_literal_type(param_type)
 
 
 @patch("src.schemafunc.function_to_schema")
@@ -224,7 +200,9 @@ def test_google_style_docstring():
     }
 
 
-import pytest
+class SampleTypedDict(typing.TypedDict):
+    name: str
+    age: int
 
 
 @pytest.mark.parametrize(
@@ -235,10 +213,46 @@ import pytest
         (typing.Union[int, str], {"type": ["integer", "string"]}),
         (typing.List[int], {"type": "array", "items": {"type": "integer"}}),
         (typing.Literal[1, "two", True], {"type": "string", "enum": [1, "two", True]}),
+        (
+            typing.Literal[1, "two", True, None],
+            {"type": "string", "enum": [1, "two", True, None]},
+        ),
+        (typing.Literal[1, 2, 3], {"type": "string", "enum": [1, 2, 3]}),
+        (typing.Literal["a", "b", "c"], {"type": "string", "enum": ["a", "b", "c"]}),
+        (typing.Literal[True, False], {"type": "string", "enum": [True, False]}),
+        (typing.Literal[None], {"type": "string", "enum": [None]}),
+        (
+            typing.Literal[1, "two", True, None, object()],
+            pytest.raises(UnsupportedLiteralTypeError),
+        ),
+        (
+            typing.Dict[str, int],
+            {"type": "object", "additionalProperties": {"type": "integer"}},
+        ),
+        (
+            typing.Mapping[str, int],
+            {"type": "object", "additionalProperties": {"type": "integer"}},
+        ),
+        (
+            SampleTypedDict,
+            {
+                "type": "object",
+                "properties": {
+                    "name": {"type": "string"},
+                    "age": {"type": "integer"},
+                },
+                "required": ["name", "age"],
+                "additionalProperties": False,
+            },
+        ),
     ],
 )
 def test_resolve_type(typ, expected):
-    assert resolve_type(typ) == expected
+    if isinstance(expected, dict):
+        assert resolve_type(typ) == expected
+    else:
+        with expected:
+            resolve_type(typ)
 
 
 def test_resolve_type_raises_error_for_unhandled_type():
