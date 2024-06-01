@@ -43,6 +43,9 @@ def resolve_type(param_type: Type) -> Dict[str, Any]:
         >>> resolve_type(int)
         {'type': 'integer'}
     """
+    # special cases:
+    if param_type is Any:
+        return {}
     for handler in type_registry.values():
         if handler.is_type(param_type):
             return handler.resolve(param_type)
