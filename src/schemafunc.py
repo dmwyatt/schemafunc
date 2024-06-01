@@ -7,11 +7,12 @@ from types import MappingProxyType
 
 from docstring_parser import Docstring, parse
 
+P = typing.ParamSpec("P")
+R = typing.TypeVar("R", covariant=True)
+
 
 class FunctionMetadata:
-    def __init__(
-        self, func: typing.Callable[..., typing.Any], **schema_kwargs: typing.Any
-    ):
+    def __init__(self, func: typing.Callable[P, R], **schema_kwargs: typing.Any):
         self.func = func
         self.schema_kwargs = schema_kwargs
         self.schema = function_to_schema(self.func, **self.schema_kwargs)
@@ -24,10 +25,6 @@ class FunctionMetadata:
         }
 
 
-P = typing.ParamSpec("P")
-R = typing.TypeVar("R", covariant=True)
-
-
 class HasSchemaFuncAttribute(typing.Protocol[P, R]):
     schemafunc: FunctionMetadata
 
@@ -36,6 +33,18 @@ class HasSchemaFuncAttribute(typing.Protocol[P, R]):
 
 
 DecType = typing.Callable[[typing.Callable[P, R]], HasSchemaFuncAttribute[P, R]]
+
+
+@typing.overload
+def add_schemafunc(_func: None = None, **schema_kwargs: typing.Any) -> DecType[P, R]:
+    ...
+
+
+@typing.overload
+def add_schemafunc(
+    _func: typing.Callable[P, R], **schema_kwargs: typing.Any
+) -> HasSchemaFuncAttribute[P, R]:
+    ...
 
 
 def add_schemafunc(
