@@ -293,7 +293,7 @@ def test_resolve_type_dict_any_value():
 
 
 def test_resolve_type_dict_non_string_key():
-    with pytest.raises(UnsupportedTypeError, match="Dictionary keys must be strings"):
+    with pytest.raises(UnsupportedTypeError, match="Mapping keys must be strings"):
         resolve_type(typing.Dict[int, str])
 
 
