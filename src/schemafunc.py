@@ -230,7 +230,7 @@ def process_parameters(
         ...     pass
         >>> sig = signature(example_function)
         >>> doc = parse(example_function.__doc__)
-        >>> process_parameters(sig, doc, allow_bare_generic_types=False)
+        >>> process_parameters(sig.parameters, doc, allow_bare_generic_types=False)
         {'param': {'type': 'integer', 'description': 'The first parameter.'}}
 
     Note:
