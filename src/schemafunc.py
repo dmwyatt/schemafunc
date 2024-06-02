@@ -73,6 +73,8 @@ def add_schemafunc(
 
 def function_to_schema(
     func: typing.Callable,
+    /,
+    ignore_args: typing.Sequence[str] = (),
     require_all_params_in_doc: bool = True,
     require_descriptions_for_params: bool = True,
     allow_bare_generic_types: bool = True,
@@ -87,6 +89,8 @@ def function_to_schema(
 
     Parameters:
         func (typing.Callable): The function to be converted into a schema.
+        ignore_args (typing.Sequence[str], optional): A sequence of parameter names
+            to ignore when generating the schema. Defaults to ().
         require_all_params_in_doc (bool, optional): If True, an exception is raised
             if not all parameters are documented. Defaults to True.
         require_descriptions_for_params (bool, optional): If True, an exception is
@@ -126,6 +130,11 @@ def function_to_schema(
         {'type': 'function', 'function': {'name': 'example_function', 'description': 'Simple example function.', 'parameters': {'type': 'object', 'properties': {'param1': {'type': 'integer', 'description': 'The first parameter.'}}, 'required': ['param1']}}}
     """
     signature = inspect.signature(func)
+    filtered_parameters = {
+        name: param
+        for name, param in signature.parameters.items()
+        if name not in ignore_args
+    }
     docstring = parse(func.__doc__) if func.__doc__ else None
 
     if (
@@ -165,15 +174,15 @@ def function_to_schema(
             )
 
     parameters = process_parameters(
-        signature,
+        filtered_parameters,
         docstring,
         allow_bare_generic_types,
     )
-    return generate_schema(func, docstring, parameters)
+    return generate_schema(func, docstring, parameters, ignore_args)
 
 
 def process_parameters(
-    signature: inspect.Signature,
+    signature: typing.Mapping[str, inspect.Parameter],
     docstring: Docstring,
     allow_bare_generic_types: bool,
 ) -> typing.Dict[str, typing.Any]:
@@ -186,8 +195,8 @@ def process_parameters(
     representation.
 
     Parameters:
-        signature (inspect.Signature): A Signature object of the function
-            to process.
+        signature (typing.Mapping[str, inspect.Parameter]): A mapping of parameter
+            names to their corresponding inspect.Parameter objects.
         docstring (Docstring): A parsed docstring object which includes
             parameter's documentation.
         allow_bare_generic_types (bool): A boolean parameter that indicates
@@ -233,7 +242,7 @@ def process_parameters(
     """
     parameters = {}
 
-    for name, param in signature.parameters.items():
+    for name, param in signature.items():
         if param.annotation == inspect.Parameter.empty:
             raise ValueError(f"Parameter {name} must have a type annotation")
 
@@ -267,6 +276,7 @@ def generate_schema(
     func: typing.Callable,
     docstring: Docstring,
     parameters: dict,
+    ignore_args: typing.Sequence[str] = (),
 ) -> dict:
     schema = {
         "type": "function",
@@ -280,6 +290,7 @@ def generate_schema(
                     name
                     for name, param in inspect.signature(func).parameters.items()
                     if param.default == inspect.Parameter.empty
+                    and name not in ignore_args
                 ],
             },
         },
