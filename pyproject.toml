@@ -40,5 +40,5 @@ build-backend = "poetry.core.masonry.api"
 
 [tool.poetry.scripts]
 test = "pytest:main"
-release = "scripts.release:main"
+release = "dev_scripts.release:main"
 
