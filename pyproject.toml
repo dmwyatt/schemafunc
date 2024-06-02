@@ -23,6 +23,9 @@ classifiers = [
     "Topic :: Utilities"
 ]
 
+exclude=["tests/*", "dev_scripts/*"]
+
+
 [tool.poetry.dependencies]
 python = "^3.10.11"
 docstring-parser = "^0.16"
@@ -37,3 +40,5 @@ build-backend = "poetry.core.masonry.api"
 
 [tool.poetry.scripts]
 test = "pytest:main"
+release = "scripts.release:main"
+
