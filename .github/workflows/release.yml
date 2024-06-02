@@ -55,11 +55,11 @@ jobs:
       id: create_release
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        tag: ${{ github.ref }}
       run: |
+        tag=${GITHUB_REF#refs/tags/}
         gh release create "$tag" \
           --repo="$GITHUB_REPOSITORY" \
-          --title="$tag#v" \
+          --title="$tag" \
           --generate-notes
 
     - name: Publish to PyPI
