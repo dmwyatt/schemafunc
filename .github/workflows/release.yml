@@ -32,6 +32,7 @@ jobs:
           poetry run test
 
   release:
+    needs: test
     runs-on: ubuntu-latest
 
     steps:
@@ -50,14 +51,14 @@ jobs:
 
     - name: Create Release
       id: create_release
-      uses: actions/create-release@v1
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      with:
-        tag_name: ${{ github.ref }}
-        release_name: Release ${{ github.ref }}
-        draft: false
-        prerelease: false
+        tag: ${{ github.ref }}
+        run: |
+          gh release create "$tag" \
+            --repo="$GITHUB_REPOSITORY" \
+            --title="$tag#v" \
+            --generate-notes
 
     - name: Publish to PyPI
       run: poetry publish --build --username __token__ --password ${{ secrets.PYPI_API_TOKEN }}
