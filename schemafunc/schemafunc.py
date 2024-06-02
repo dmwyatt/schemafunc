@@ -4,14 +4,14 @@ from functools import wraps
 
 from docstring_parser import Docstring, parse
 
-from exceptions import (
+from schemafunc.exceptions import (
     BareGenericTypeError,
     NoDocstringError,
     NoShortDescriptionError,
     ParameterMissingDescriptionError,
     ParameterNotDocumentedError,
 )
-from type_registry import resolve_type
+from .type_registry import resolve_type
 
 P = typing.ParamSpec("P")
 R = typing.TypeVar("R", covariant=True)

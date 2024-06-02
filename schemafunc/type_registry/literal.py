@@ -1,8 +1,8 @@
 from typing import Any, Dict, Literal, Type, get_args, get_origin
 
-from exceptions import UnsupportedLiteralTypeError
-from type_registry.basic_types import JSON_SCHEMA_TYPES
-from type_registry.registry import TypeHandler, register_type_handler
+from schemafunc.exceptions import UnsupportedLiteralTypeError
+from schemafunc.type_registry.basic_types import JSON_SCHEMA_TYPES
+from schemafunc.type_registry.registry import TypeHandler, register_type_handler
 
 
 @register_type_handler

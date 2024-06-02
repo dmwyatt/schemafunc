@@ -1,6 +1,10 @@
 from typing import Any, Dict, Type, TypedDict, _TypedDictMeta
 
-from type_registry.registry import TypeHandler, register_type_handler, resolve_type
+from schemafunc.type_registry.registry import (
+    TypeHandler,
+    register_type_handler,
+    resolve_type,
+)
 
 
 @register_type_handler

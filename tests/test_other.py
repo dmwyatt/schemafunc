@@ -4,16 +4,18 @@ from unittest.mock import ANY, patch
 
 import pytest
 
-from exceptions import (
+from schemafunc.exceptions import (
     NoDocstringError,
     UnsupportedLiteralTypeError,
     UnsupportedTypeError,
 )
-from src.schemafunc import (
+from schemafunc.schemafunc import (
     add_schemafunc,
 )
-from type_registry import resolve_type
-from type_registry.array import is_representable_as_js_array
+from schemafunc.type_registry import resolve_type
+from schemafunc.type_registry.array import is_representable_as_js_array
+
+print("wtf" * 100)
 
 
 @pytest.mark.parametrize(
@@ -35,7 +37,7 @@ def test_is_representable_as_js_array(typ, expected):
     assert is_representable_as_js_array(typ) == expected
 
 
-@patch("src.schemafunc.function_to_schema")
+@patch("schemafunc.schemafunc.function_to_schema")
 def test_decorator_passes_arguments_correctly(mock_function_to_schema):
     # Decorator is applied in a traditional way
     @add_schemafunc(require_param_descriptions=False, allow_bare_generic_types=True)

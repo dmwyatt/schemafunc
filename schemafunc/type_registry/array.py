@@ -1,9 +1,13 @@
 # array_type_handler.py
 from collections.abc import Mapping, Sequence, Set
-from typing import Any, Dict, Type, get_origin, get_args
+from typing import Any, Dict, Type, get_args, get_origin
 
-from exceptions import BareGenericTypeError
-from type_registry.registry import TypeHandler, register_type_handler, resolve_type
+from schemafunc.exceptions import BareGenericTypeError
+from schemafunc.type_registry.registry import (
+    TypeHandler,
+    register_type_handler,
+    resolve_type,
+)
 
 
 def is_representable_as_js_array(typ: Type) -> bool:

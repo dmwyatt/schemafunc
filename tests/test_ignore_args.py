@@ -1,4 +1,4 @@
-from schemafunc import add_schemafunc
+from schemafunc.schemafunc import add_schemafunc
 
 
 def test_ignore_single_arg():

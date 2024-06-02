@@ -3,8 +3,12 @@
 from collections.abc import Mapping as AbcMapping
 from typing import Any, Dict, Mapping, Type, _TypedDictMeta, get_args, get_origin
 
-from exceptions import UnsupportedTypeError
-from type_registry.registry import TypeHandler, register_type_handler, resolve_type
+from schemafunc.exceptions import UnsupportedTypeError
+from schemafunc.type_registry.registry import (
+    TypeHandler,
+    register_type_handler,
+    resolve_type,
+)
 
 
 @register_type_handler

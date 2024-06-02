@@ -1,7 +1,7 @@
 from abc import ABC
 from typing import Any, Dict, Type
 
-from exceptions import UnsupportedTypeError
+from schemafunc.exceptions import UnsupportedTypeError
 
 
 class TypeHandler(ABC):

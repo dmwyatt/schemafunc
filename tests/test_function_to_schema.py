@@ -2,14 +2,14 @@ from typing import Literal, Optional, Union
 
 import pytest
 
-from schemafunc import (
-    function_to_schema,
-)
-from exceptions import (
+from schemafunc.exceptions import (
     BareGenericTypeError,
     NoDocstringError,
     ParameterMissingDescriptionError,
     ParameterNotDocumentedError,
+)
+from schemafunc.schemafunc import (
+    function_to_schema,
 )
 
 
