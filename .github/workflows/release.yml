@@ -54,11 +54,11 @@ jobs:
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         tag: ${{ github.ref }}
-        run: |
-          gh release create "$tag" \
-            --repo="$GITHUB_REPOSITORY" \
-            --title="$tag#v" \
-            --generate-notes
+      run: |
+        gh release create "$tag" \
+          --repo="$GITHUB_REPOSITORY" \
+          --title="$tag#v" \
+          --generate-notes
 
     - name: Publish to PyPI
       run: poetry publish --build --username __token__ --password ${{ secrets.PYPI_API_TOKEN }}
