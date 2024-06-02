@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "schemafunc"
-version = "0.3.12"
+version = "0.3.13"
 description = "Python function-to-LLM tool maker."
 authors = ["Dustin Wyatt <dustin.wyatt@gmail.com>"]
 license = "MIT"

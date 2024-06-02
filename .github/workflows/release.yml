@@ -32,6 +32,8 @@ jobs:
           poetry run test
 
   release:
+    permissions: write-all
+
     needs: test
     runs-on: ubuntu-latest
 
