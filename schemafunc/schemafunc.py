@@ -85,23 +85,22 @@ class FunctionMetadata:
 class HasSchemaFuncAttribute(typing.Protocol[P, R]):
     schemafunc: FunctionMetadata
 
-    def __call__(self, *args: P.args, **kwargs: P.kwargs) -> R:
-        ...
+    def __call__(self, *args: P.args, **kwargs: P.kwargs) -> R: ...
 
 
 DecType = typing.Callable[[typing.Callable[P, R]], HasSchemaFuncAttribute[P, R]]
 
 
 @typing.overload
-def add_schemafunc(_func: None = None, **schema_kwargs: typing.Any) -> DecType[P, R]:
-    ...
+def add_schemafunc(
+    _func: None = None, **schema_kwargs: typing.Any
+) -> DecType[P, R]: ...
 
 
 @typing.overload
 def add_schemafunc(
     _func: typing.Callable[P, R], **schema_kwargs: typing.Any
-) -> HasSchemaFuncAttribute[P, R]:
-    ...
+) -> HasSchemaFuncAttribute[P, R]: ...
 
 
 def add_schemafunc(
