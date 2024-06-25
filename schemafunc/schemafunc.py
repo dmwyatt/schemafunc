@@ -1,5 +1,7 @@
+import functools
 import inspect
 import typing
+import warnings
 from functools import wraps
 
 from docstring_parser import Docstring, parse
@@ -17,12 +19,61 @@ P = typing.ParamSpec("P")
 R = typing.TypeVar("R", covariant=True)
 
 
+def generate_openai_schema(func: typing.Callable) -> dict:
+    return function_to_schema(func)
+
+
+def generate_anthropic_schema(func: typing.Callable) -> dict:
+    openai_schema = function_to_schema(func)
+    anthropic_schema = {
+        "name": openai_schema["function"]["name"],
+        "description": openai_schema["function"]["description"],
+        "input_schema": openai_schema["function"]["parameters"],
+    }
+    # Remove the old keys to move data instead of copying
+    del openai_schema["function"]["parameters"]
+    del openai_schema["function"]["name"]
+    del openai_schema["function"]["description"]
+    return anthropic_schema
+
+
+class OpenAISchema:
+    def __init__(self, func: typing.Callable):
+        self.func = func
+
+    @functools.cached_property
+    def schema(self) -> dict:
+        return generate_openai_schema(self.func)
+
+
+class AnthropicSchema:
+    def __init__(self, func: typing.Callable):
+        self.func = func
+
+    @functools.cached_property
+    def schema(self) -> dict:
+        return generate_anthropic_schema(self.func)
+
+
 class FunctionMetadata:
     def __init__(self, func: typing.Callable[P, R], **schema_kwargs: typing.Any):
         self.func = func
         self.schema_kwargs = schema_kwargs
-        self.schema = function_to_schema(self.func, **self.schema_kwargs)
-        self.openai_tool_kwargs = {
+        self.openai = OpenAISchema(func)
+        self.anthropic = AnthropicSchema(func)
+
+    @functools.cached_property
+    def schema(self) -> dict:
+        warnings.warn(
+            "schema is deprecated, use openai.schema instead",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        return function_to_schema(self.func, **self.schema_kwargs)
+
+    @functools.cached_property
+    def openai_tool_kwargs(self) -> dict:
+        return {
             "tools": [self.schema],
             "tool_choice": {
                 "type": "function",
@@ -62,6 +113,9 @@ def add_schemafunc(
             return func(*args, **kwargs)
 
         setattr(wrapper, "schemafunc", FunctionMetadata(func, **schema_kwargs))
+
+        # force evaluation so that errors are caught early
+        _ = wrapper.schemafunc.schema
 
         return typing.cast(HasSchemaFuncAttribute[P, R], wrapper)
 
