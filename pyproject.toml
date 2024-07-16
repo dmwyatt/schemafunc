@@ -33,6 +33,8 @@ docstring-parser = "^0.16"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.1.1"
+rich = "^13.7.1"
+click = "^8.1.7"
 
 [build-system]
 requires = ["poetry-core"]
