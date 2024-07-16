@@ -19,12 +19,12 @@ P = typing.ParamSpec("P")
 R = typing.TypeVar("R", covariant=True)
 
 
-def generate_openai_schema(func: typing.Callable) -> dict:
-    return function_to_schema(func)
+def generate_openai_schema(func: typing.Callable, **schema_kwargs) -> dict:
+    return function_to_schema(func, **schema_kwargs)
 
 
-def generate_anthropic_schema(func: typing.Callable) -> dict:
-    openai_schema = function_to_schema(func)
+def generate_anthropic_schema(func: typing.Callable, **schema_kwargs) -> dict:
+    openai_schema = function_to_schema(func, **schema_kwargs)
     anthropic_schema = {
         "name": openai_schema["function"]["name"],
         "description": openai_schema["function"]["description"],
@@ -38,29 +38,31 @@ def generate_anthropic_schema(func: typing.Callable) -> dict:
 
 
 class OpenAISchema:
-    def __init__(self, func: typing.Callable):
+    def __init__(self, func: typing.Callable, **schema_kwargs: typing.Any):
         self.func = func
+        self.schema_kwargs = schema_kwargs
 
     @functools.cached_property
     def schema(self) -> dict:
-        return generate_openai_schema(self.func)
+        return generate_openai_schema(self.func, **self.schema_kwargs)
 
 
 class AnthropicSchema:
-    def __init__(self, func: typing.Callable):
+    def __init__(self, func: typing.Callable, **schema_kwargs: typing.Any):
         self.func = func
+        self.schema_kwargs = schema_kwargs
 
     @functools.cached_property
     def schema(self) -> dict:
-        return generate_anthropic_schema(self.func)
+        return generate_anthropic_schema(self.func, **self.schema_kwargs)
 
 
 class FunctionMetadata:
     def __init__(self, func: typing.Callable[P, R], **schema_kwargs: typing.Any):
         self.func = func
         self.schema_kwargs = schema_kwargs
-        self.openai = OpenAISchema(func)
-        self.anthropic = AnthropicSchema(func)
+        self.openai = OpenAISchema(func, **schema_kwargs)
+        self.anthropic = AnthropicSchema(func, **schema_kwargs)
 
     @functools.cached_property
     def schema(self) -> dict:
