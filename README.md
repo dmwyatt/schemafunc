@@ -8,7 +8,7 @@ The intended use case is for LLM tool usage and output constraints.
 Future updates should include explicit support for other LLMs, though the current 
 functionality probably works with most or can be easily adapted.
 
-Supports Python 3.8+.
+Supports Python 3.10+.
 
 ## Output constraints?
 
@@ -191,16 +191,16 @@ print(arguments)
    git checkout -b your-feature-branch
    ```
 
-2. **Set Up Environment**: Use Poetry to install dependencies and set up your development environment.
+2. **Set Up Environment**: Use `uv` to install dependencies and set up your development environment.
    ```bash
-   poetry install
+   uv sync --extra dev
    ```
 
 3. **Make Changes**: Implement your feature or fix. Remember to add or update tests and documentation as needed.
 
 4. **Test Locally**: Run the tests to ensure everything works as expected.
    ```bash
-   poetry run test
+   uv run pytest
    ```
 
 5. **Commit & Push**: Commit your changes with a clear message, then push them to your fork.

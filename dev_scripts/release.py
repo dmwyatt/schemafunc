@@ -1,4 +1,5 @@
 import click
+import re
 import subprocess
 import sys
 from rich.console import Console
@@ -33,15 +34,27 @@ def check_uncommitted_changes():
 
 
 def check_main_branch():
-    result = run_command(["git", "rev-parse", "--abbrev-ref", "HEAD"],
-                         "Checking current branch")
+    result = run_command(
+        ["git", "rev-parse", "--abbrev-ref", "HEAD"],
+        "Checking current branch",
+    )
     if result != "main":
         console.print("[bold red]Error:[/bold red] Not on the main branch.")
         sys.exit(1)
 
 
 def get_current_version():
-    return run_command(["poetry", "version"], "Getting current version").split()[-1]
+    with open("pyproject.toml", "r", encoding="utf-8") as f:
+        content = f.read()
+
+    match = re.search(r'(?m)^version\s*=\s*"([^"]+)"', content)
+    if not match:
+        console.print(
+            "[bold red]Error:[/bold red] Could not find version in pyproject.toml."
+        )
+        sys.exit(1)
+
+    return match.group(1)
 
 
 def calculate_new_version(current_version, version=None):
@@ -52,7 +65,24 @@ def calculate_new_version(current_version, version=None):
 
 
 def bump_version(version):
-    run_command(["poetry", "version", version], f"Bumping version to {version}")
+    with open("pyproject.toml", "r", encoding="utf-8") as f:
+        content = f.read()
+
+    new_content, count = re.subn(
+        r'(?m)^(version\s*=\s*")[^"]+(")',
+        rf'\1{version}\2',
+        content,
+        count=1,
+    )
+
+    if count == 0:
+        console.print(
+            "[bold red]Error:[/bold red] Could not update version in pyproject.toml."
+        )
+        sys.exit(1)
+
+    with open("pyproject.toml", "w", encoding="utf-8") as f:
+        f.write(new_content)
 
 
 def commit_and_tag(version):
