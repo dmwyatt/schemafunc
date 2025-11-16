@@ -15,8 +15,6 @@ from schemafunc.schemafunc import (
 from schemafunc.type_registry import resolve_type
 from schemafunc.type_registry.array import is_representable_as_js_array
 
-print("wtf" * 100)
-
 
 @pytest.mark.parametrize(
     "typ, expected",
@@ -50,7 +48,7 @@ def test_decorator_passes_arguments_correctly(mock_function_to_schema):
         """
         pass
 
-    test_function.schemafunc.schema
+    test_function.schemafunc.openai.schema
 
     # Check that function_to_schema was called correctly
     mock_function_to_schema.assert_called_once_with(
@@ -69,9 +67,9 @@ def test_decorator_does_not_modify_function_behavior():
         """
         return a * 2
 
-    assert (
-        function_behavior(10) == 20
-    ), "The function should return the correct result after being decorated"
+    assert function_behavior(10) == 20, (
+        "The function should return the correct result after being decorated"
+    )
 
 
 def test_decorator_error_propagation():
@@ -94,15 +92,15 @@ def test_decorator_applies_schemafunc():
         """
         pass
 
-    assert hasattr(
-        sample_function, "schemafunc"
-    ), "schemafunc should be attached to the function"
-    assert hasattr(
-        sample_function.schemafunc, "schema"
-    ), "Schema should be attached to the function"
-    assert hasattr(
-        sample_function.schemafunc, "openai_tool_kwargs"
-    ), "Function should be attached to the function"
+    assert hasattr(sample_function, "schemafunc"), (
+        "schemafunc should be attached to the function"
+    )
+    assert hasattr(sample_function.schemafunc, "openai"), (
+        "OpenAI schema should be attached to the function"
+    )
+    assert hasattr(sample_function.schemafunc, "openai_tool_kwargs"), (
+        "Function should be attached to the function"
+    )
 
 
 def test_decorator_applies_openai_tool_kwargs():
@@ -118,12 +116,40 @@ def test_decorator_applies_openai_tool_kwargs():
         pass
 
     assert sample_function.schemafunc.openai_tool_kwargs == {
-        "tools": [sample_function.schemafunc.schema],
+        "tools": [sample_function.schemafunc.openai.schema],
         "tool_choice": {
             "type": "function",
-            "function": {"name": sample_function.schemafunc.schema["function"]["name"]},
+            "function": {
+                "name": sample_function.schemafunc.openai.schema["function"]["name"]
+            },
         },
     }
+
+
+def test_deprecated_schema_property_raises_warning():
+    @add_schemafunc
+    def sample_function(a: int):
+        """
+        A sample function for testing.
+
+        :param a: The first parameter.
+        :return: Nothing.
+        """
+        pass
+
+    # Test that accessing .schema raises a DeprecationWarning
+    with pytest.warns(
+        DeprecationWarning, match="schema is deprecated, use openai.schema instead"
+    ):
+        deprecated_schema = sample_function.schemafunc.schema
+
+    # Verify it returns the same schema as the new property
+    assert deprecated_schema == sample_function.schemafunc.openai.schema
+
+    # Verify subsequent accesses use the cached value (no additional warning)
+    # This is expected behavior for cached_property
+    deprecated_schema_again = sample_function.schemafunc.schema
+    assert deprecated_schema_again == deprecated_schema
 
 
 def test_numpy_style_docstring():
@@ -145,7 +171,7 @@ def test_numpy_style_docstring():
         """
         pass
 
-    assert sample_function.schemafunc.schema == {
+    assert sample_function.schemafunc.openai.schema == {
         "function": {
             "description": "A sample function for testing.",
             "name": "sample_function",
@@ -154,7 +180,7 @@ def test_numpy_style_docstring():
                     "a": {"description": "The first parameter.", "type": "integer"},
                     "b": {
                         "default": "default",
-                        "description": "The second parameter, " "optional.",
+                        "description": "The second parameter, optional.",
                         "type": "string",
                     },
                 },
@@ -181,7 +207,7 @@ def test_google_style_docstring():
         """
         pass
 
-    assert sample_function.schemafunc.schema == {
+    assert sample_function.schemafunc.openai.schema == {
         "function": {
             "description": "A sample function for testing.",
             "name": "sample_function",
@@ -190,7 +216,7 @@ def test_google_style_docstring():
                     "a": {"description": "The first parameter.", "type": "integer"},
                     "b": {
                         "default": "default",
-                        "description": "The second parameter, " "optional.",
+                        "description": "The second parameter, optional.",
                         "type": "string",
                     },
                 },
