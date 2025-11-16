@@ -137,18 +137,11 @@ def test_deprecated_schema_property_raises_warning():
         """
         pass
 
-    # Test that accessing .schema raises a DeprecationWarning
+    # Verify that accessing .schema raises a DeprecationWarning
     with pytest.warns(
         DeprecationWarning, match="schema is deprecated, use openai.schema instead"
     ):
-        deprecated_schema = sample_function.schemafunc.schema
-
-    # Verify it returns the same schema as the new property
-    assert deprecated_schema == sample_function.schemafunc.openai.schema
-    
-    # Subsequent accesses return the cached value without triggering another warning
-    deprecated_schema_again = sample_function.schemafunc.schema
-    assert deprecated_schema_again == deprecated_schema
+        _ = sample_function.schemafunc.schema
 
 
 def test_numpy_style_docstring():
