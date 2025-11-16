@@ -193,7 +193,7 @@ print(arguments)
 
 2. **Set Up Environment**: Use `uv` to install dependencies and set up your development environment.
    ```bash
-   uv sync --extra dev
+   uv sync --group dev
    ```
 
 3. **Make Changes**: Implement your feature or fix. Remember to add or update tests and documentation as needed.

@@ -20,19 +20,12 @@ classifiers = [
     "Topic :: Software Development :: Libraries :: Python Modules",
     "Topic :: Utilities",
 ]
+dependencies = [
+    "docstring-parser>=0.16,<0.17",
+]
 
 [project.urls]
 Repository = "https://github.com/dmwyatt/schemafunc"
-
-[project.dependencies]
-docstring-parser = ">=0.16,<0.17"
-
-[project.optional-dependencies]
-dev = [
-    "pytest>=8.1.1,<9",
-    "rich>=13.7.1,<14",
-    "click>=8.1.7,<9",
-]
 
 [project.scripts]
 test = "pytest:main"
@@ -44,5 +37,12 @@ build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.sdist]
 exclude = ["tests", "dev_scripts"]
+
+[dependency-groups]
+dev = [
+    "click>=8.3.1",
+    "pytest>=9.0.1",
+    "rich>=14.2.0",
+]
 
 

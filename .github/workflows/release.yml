@@ -21,7 +21,7 @@ jobs:
 
       - name: Install dependencies
         run: |
-          uv sync --extra dev
+          uv sync --group dev
 
       - name: Run tests
         run: |
@@ -40,10 +40,6 @@ jobs:
     - uses: astral-sh/setup-uv@v4
       with:
         python-version: '3.12'
-
-    - name: Install dependencies
-      run: |
-        uv sync --extra dev
 
     - name: Create Release
       id: create_release
