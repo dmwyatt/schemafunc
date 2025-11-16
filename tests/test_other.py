@@ -145,9 +145,8 @@ def test_deprecated_schema_property_raises_warning():
 
     # Verify it returns the same schema as the new property
     assert deprecated_schema == sample_function.schemafunc.openai.schema
-
-    # Verify subsequent accesses use the cached value (no additional warning)
-    # This is expected behavior for cached_property
+    
+    # Subsequent accesses return the cached value without triggering another warning
     deprecated_schema_again = sample_function.schemafunc.schema
     assert deprecated_schema_again == deprecated_schema
 
