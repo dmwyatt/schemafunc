@@ -76,10 +76,10 @@ class FunctionMetadata:
     @functools.cached_property
     def openai_tool_kwargs(self) -> dict:
         return {
-            "tools": [self.schema],
+            "tools": [self.openai.schema],
             "tool_choice": {
                 "type": "function",
-                "function": {"name": self.schema.get("function", {}).get("name")},
+                "function": {"name": self.openai.schema.get("function", {}).get("name")},
             },
         }
 
@@ -116,7 +116,7 @@ def add_schemafunc(
         setattr(wrapper, "schemafunc", FunctionMetadata(func, **schema_kwargs))
 
         # force evaluation so that errors are caught early
-        _ = wrapper.schemafunc.schema
+        _ = wrapper.schemafunc.openai.schema
 
         return typing.cast(HasSchemaFuncAttribute[P, R], wrapper)
 
