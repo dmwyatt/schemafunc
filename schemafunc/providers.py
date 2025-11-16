@@ -196,8 +196,10 @@ def get_provider(name: str) -> Optional[Type[SchemaProvider]]:
         
     Example:
         >>> provider_class = get_provider("openai")
-        >>> provider = provider_class()
-        >>> schema = provider.format_schema(intermediate)
+        >>> provider_class is not None
+        True
+        >>> provider_class.__name__
+        'OpenAIProvider'
     """
     return _provider_registry.get(name.lower())
 
