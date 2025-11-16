@@ -13,6 +13,7 @@ from schemafunc.exceptions import (
     ParameterMissingDescriptionError,
     ParameterNotDocumentedError,
 )
+from .providers import IntermediateSchema, OpenAIProvider, AnthropicProvider
 from .type_registry import resolve_type
 
 P = typing.ParamSpec("P")
@@ -20,44 +21,60 @@ R = typing.TypeVar("R", covariant=True)
 
 
 def generate_openai_schema(func: typing.Callable, **schema_kwargs) -> dict:
+    """Generate OpenAI-format schema from a function."""
     return function_to_schema(func, **schema_kwargs)
 
 
 def generate_anthropic_schema(func: typing.Callable, **schema_kwargs) -> dict:
-    openai_schema = function_to_schema(func, **schema_kwargs)
-    anthropic_schema = {
-        "name": openai_schema["function"]["name"],
-        "description": openai_schema["function"]["description"],
-        "input_schema": openai_schema["function"]["parameters"],
-    }
-    # Remove the old keys to move data instead of copying
-    del openai_schema["function"]["parameters"]
-    del openai_schema["function"]["name"]
-    del openai_schema["function"]["description"]
-    return anthropic_schema
+    """
+    Generate Anthropic-format schema from a function.
+    
+    Now uses the provider system to convert from intermediate format
+    instead of transforming OpenAI format.
+    """
+    # Generate intermediate schema
+    intermediate = function_to_intermediate_schema(func, **schema_kwargs)
+    # Use Anthropic provider to format it
+    provider = AnthropicProvider()
+    return provider.format_schema(intermediate)
 
 
 class OpenAISchema:
+    """OpenAI-specific schema wrapper using the provider system."""
+    
     def __init__(self, func: typing.Callable, **schema_kwargs: typing.Any):
         self.func = func
         self.schema_kwargs = schema_kwargs
+        self._provider = OpenAIProvider()
 
     @functools.cached_property
     def schema(self) -> dict:
+        """Generate OpenAI-format schema."""
         return generate_openai_schema(self.func, **self.schema_kwargs)
 
 
 class AnthropicSchema:
+    """Anthropic-specific schema wrapper using the provider system."""
+    
     def __init__(self, func: typing.Callable, **schema_kwargs: typing.Any):
         self.func = func
         self.schema_kwargs = schema_kwargs
+        self._provider = AnthropicProvider()
 
     @functools.cached_property
     def schema(self) -> dict:
+        """Generate Anthropic-format schema."""
         return generate_anthropic_schema(self.func, **self.schema_kwargs)
 
 
 class FunctionMetadata:
+    """
+    Metadata container for function schemas across multiple providers.
+    
+    This class generates and caches schemas for different LLM providers,
+    using the provider system to convert from a shared intermediate format.
+    """
+    
     def __init__(self, func: typing.Callable[P, R], **schema_kwargs: typing.Any):
         self.func = func
         self.schema_kwargs = schema_kwargs
@@ -65,7 +82,21 @@ class FunctionMetadata:
         self.anthropic = AnthropicSchema(func, **schema_kwargs)
 
     @functools.cached_property
+    def _intermediate(self) -> IntermediateSchema:
+        """
+        Cached intermediate schema representation.
+        
+        This is generated once and can be used to create any provider-specific format.
+        """
+        return function_to_intermediate_schema(self.func, **self.schema_kwargs)
+
+    @functools.cached_property
     def schema(self) -> dict:
+        """
+        Deprecated: Use openai.schema instead.
+        
+        Returns OpenAI-format schema for backward compatibility.
+        """
         warnings.warn(
             "schema is deprecated, use openai.schema instead",
             DeprecationWarning,
@@ -75,13 +106,13 @@ class FunctionMetadata:
 
     @functools.cached_property
     def openai_tool_kwargs(self) -> dict:
-        return {
-            "tools": [self.openai.schema],
-            "tool_choice": {
-                "type": "function",
-                "function": {"name": self.openai.schema.get("function", {}).get("name")},
-            },
-        }
+        """
+        Generate OpenAI-specific tool kwargs for API calls.
+        
+        Returns a dictionary that can be unpacked into openai.chat.completions.create()
+        """
+        provider = OpenAIProvider()
+        return provider.format_tool_kwargs(self.openai.schema)
 
 
 class HasSchemaFuncAttribute(typing.Protocol[P, R]):
@@ -126,7 +157,7 @@ def add_schemafunc(
         return decorator
 
 
-def function_to_schema(
+def function_to_intermediate_schema(
     func: typing.Callable,
     /,
     ignore_args: typing.Sequence[str] = (),
@@ -134,13 +165,13 @@ def function_to_schema(
     require_descriptions_for_params: bool = True,
     allow_bare_generic_types: bool = True,
     require_short_description: bool = True,
-) -> dict:
+) -> IntermediateSchema:
     """
-    Generates a JSON schema from a given function.
-
-    The function's parameters and their types, as well as the descriptions provided
-    in the function's docstring, are included in the resulting schema. This provides
-    a machine-readable definition of the function's expected inputs and behaviors.
+    Generates an intermediate schema representation from a given function.
+    
+    This is the core function that extracts all metadata from a Python function
+    and creates a provider-agnostic intermediate representation. This intermediate
+    format can then be converted to any provider-specific format.
 
     Parameters:
         func (typing.Callable): The function to be converted into a schema.
@@ -156,7 +187,7 @@ def function_to_schema(
             if the function docstring lacks a short description. Defaults to True.
 
     Returns:
-        dict: A representation of the function as a JSON schema.
+        IntermediateSchema: A provider-agnostic representation of the function schema.
 
     Raises:
         NoDocstringError: Raised if the function lacks a docstring and
@@ -170,19 +201,6 @@ def function_to_schema(
             docstring and require_all_params_in_doc is True.
         ParameterMissingDescriptionError: Raised if a parameter is documented but
             lacks a description and require_descriptions_for_params is True.
-
-    Examples:
-        >>> def example_function(param1: int):
-        ...    '''
-        ...    Simple example function.
-        ...    Args:
-        ...        param1 (int): The first parameter.
-        ...    '''
-        ...    pass
-
-
-        >>> function_to_schema(example_function)
-        {'type': 'function', 'function': {'name': 'example_function', 'description': 'Simple example function.', 'parameters': {'type': 'object', 'properties': {'param1': {'type': 'integer', 'description': 'The first parameter.'}}, 'required': ['param1']}}}
     """
     signature = inspect.signature(func)
     filtered_parameters = {
@@ -233,7 +251,77 @@ def function_to_schema(
         docstring,
         allow_bare_generic_types,
     )
-    return generate_schema(func, docstring, parameters, ignore_args)
+    return generate_intermediate_schema(func, docstring, parameters, ignore_args)
+
+
+def function_to_schema(
+    func: typing.Callable,
+    /,
+    ignore_args: typing.Sequence[str] = (),
+    require_all_params_in_doc: bool = True,
+    require_descriptions_for_params: bool = True,
+    allow_bare_generic_types: bool = True,
+    require_short_description: bool = True,
+) -> dict:
+    """
+    Generates an OpenAI-format JSON schema from a given function.
+    
+    This function is kept for backward compatibility. It now uses the provider
+    system internally, generating an intermediate schema and converting it to
+    OpenAI format.
+
+    Parameters:
+        func (typing.Callable): The function to be converted into a schema.
+        ignore_args (typing.Sequence[str], optional): A sequence of parameter names
+            to ignore when generating the schema. Defaults to ().
+        require_all_params_in_doc (bool, optional): If True, an exception is raised
+            if not all parameters are documented. Defaults to True.
+        require_descriptions_for_params (bool, optional): If True, an exception is
+            raised if a documented parameter lacks a description. Defaults to True.
+        allow_bare_generic_types (bool, optional): If True, bare generic types such
+            as List, Dict are allowed. Defaults to True.
+        require_short_description (bool, optional): If True, an exception is raised
+            if the function docstring lacks a short description. Defaults to True.
+
+    Returns:
+        dict: An OpenAI-format representation of the function as a JSON schema.
+
+    Raises:
+        NoDocstringError: Raised if the function lacks a docstring and
+            require_all_params_in_doc is True.
+        NoShortDescriptionError: Raised if function docstring lacks a short
+            description and require_short_description is True.
+        ValueError: Raised if a parameter lacks a type annotation.
+        BareGenericTypeError: Raised if a parameter has a bare generic type and
+            allow_bare_generic_types is False.
+        ParameterNotDocumentedError: Raised if a parameter is not documented in the
+            docstring and require_all_params_in_doc is True.
+        ParameterMissingDescriptionError: Raised if a parameter is documented but
+            lacks a description and require_descriptions_for_params is True.
+
+    Examples:
+        >>> def example_function(param1: int):
+        ...    '''
+        ...    Simple example function.
+        ...    Args:
+        ...        param1 (int): The first parameter.
+        ...    '''
+        ...    pass
+
+
+        >>> function_to_schema(example_function)
+        {'type': 'function', 'function': {'name': 'example_function', 'description': 'Simple example function.', 'parameters': {'type': 'object', 'properties': {'param1': {'type': 'integer', 'description': 'The first parameter.'}}, 'required': ['param1']}}}
+    """
+    intermediate = function_to_intermediate_schema(
+        func,
+        ignore_args=ignore_args,
+        require_all_params_in_doc=require_all_params_in_doc,
+        require_descriptions_for_params=require_descriptions_for_params,
+        allow_bare_generic_types=allow_bare_generic_types,
+        require_short_description=require_short_description,
+    )
+    provider = OpenAIProvider()
+    return provider.format_schema(intermediate)
 
 
 def process_parameters(
@@ -327,28 +415,52 @@ def process_parameters(
     return parameters
 
 
+def generate_intermediate_schema(
+    func: typing.Callable,
+    docstring: Docstring,
+    parameters: dict,
+    ignore_args: typing.Sequence[str] = (),
+) -> IntermediateSchema:
+    """
+    Generate provider-agnostic intermediate schema representation.
+    
+    This is the core schema generation that extracts function metadata
+    into a neutral format that can be converted to any provider's format.
+    
+    Args:
+        func: The function to generate schema for
+        docstring: Parsed docstring
+        parameters: Processed parameter schemas
+        ignore_args: Arguments to ignore
+        
+    Returns:
+        IntermediateSchema object containing the function metadata
+    """
+    return IntermediateSchema(
+        name=func.__name__,
+        description=getattr(docstring, "description", "").strip(),
+        parameters=parameters,
+        required=[
+            name
+            for name, param in inspect.signature(func).parameters.items()
+            if param.default == inspect.Parameter.empty
+            and name not in ignore_args
+        ],
+    )
+
+
 def generate_schema(
     func: typing.Callable,
     docstring: Docstring,
     parameters: dict,
     ignore_args: typing.Sequence[str] = (),
 ) -> dict:
-    schema = {
-        "type": "function",
-        "function": {
-            "name": func.__name__,
-            "description": getattr(docstring, "description", "").strip(),
-            "parameters": {
-                "type": "object",
-                "properties": parameters,
-                "required": [
-                    name
-                    for name, param in inspect.signature(func).parameters.items()
-                    if param.default == inspect.Parameter.empty
-                    and name not in ignore_args
-                ],
-            },
-        },
-    }
-
-    return schema
+    """
+    Generate OpenAI-format schema (for backward compatibility).
+    
+    This function is kept for backward compatibility but now uses
+    the provider system internally.
+    """
+    intermediate = generate_intermediate_schema(func, docstring, parameters, ignore_args)
+    provider = OpenAIProvider()
+    return provider.format_schema(intermediate)
