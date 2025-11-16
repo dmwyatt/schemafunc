@@ -1,46 +1,49 @@
-[tool.poetry]
+[project]
 name = "schemafunc"
 version = "0.3.19"
 description = "Python function-to-LLM tool maker."
-authors = ["Dustin Wyatt <dustin.wyatt@gmail.com>"]
-license = "MIT"
 readme = "README.md"
-repository = "https://github.com/dmwyatt/schemafunc"
-
+requires-python = ">=3.10.11"
+license = { text = "MIT" }
+authors = [
+    { name = "Dustin Wyatt", email = "dustin.wyatt@gmail.com" },
+]
 keywords = ["python", "openai", "llm", "language-model", "schema", "function", "tool"]
-
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Intended Audience :: Developers",
     "License :: OSI Approved :: MIT License",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.8",
-    "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
     "Topic :: Software Development :: Libraries :: Python Modules",
-    "Topic :: Utilities"
+    "Topic :: Utilities",
+]
+dependencies = [
+    "docstring-parser>=0.16,<0.17",
 ]
 
-exclude=["tests/*", "dev_scripts/*"]
+[project.urls]
+Repository = "https://github.com/dmwyatt/schemafunc"
 
-
-[tool.poetry.dependencies]
-python = "^3.10.11"
-docstring-parser = "^0.16"
-
-
-[tool.poetry.group.dev.dependencies]
-pytest = "^8.1.1"
-rich = "^13.7.1"
-click = "^8.1.7"
+[project.scripts]
+release = "dev_scripts.release:main"
 
 [build-system]
-requires = ["poetry-core"]
-build-backend = "poetry.core.masonry.api"
+requires = ["hatchling"]
+build-backend = "hatchling.build"
 
-[tool.poetry.scripts]
-test = "pytest:main"
-release = "dev_scripts.release:main"
+[tool.hatch.build.targets.sdist]
+exclude = ["tests", "dev_scripts"]
+
+[dependency-groups]
+dev = [
+    "click>=8.3.1",
+    "pytest>=9.0.1",
+    "rich>=14.2.0",
+]
+
 
