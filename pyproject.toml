@@ -28,7 +28,6 @@ dependencies = [
 Repository = "https://github.com/dmwyatt/schemafunc"
 
 [project.scripts]
-test = "pytest:main"
 release = "dev_scripts.release:main"
 
 [build-system]
