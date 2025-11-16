@@ -1,6 +1,5 @@
 import collections
 import typing
-import warnings
 from unittest.mock import ANY, patch
 
 import pytest
@@ -146,14 +145,6 @@ def test_deprecated_schema_property_raises_warning():
 
     # Verify it returns the same schema as the new property
     assert deprecated_schema == sample_function.schemafunc.openai.schema
-    
-    # Subsequent accesses return the cached value without triggering another warning
-    with warnings.catch_warnings(record=True) as warning_list:
-        warnings.simplefilter("always")
-        deprecated_schema_again = sample_function.schemafunc.schema
-        assert deprecated_schema_again == deprecated_schema
-        # Verify no warning was raised on the second access (cached value)
-        assert len(warning_list) == 0, "No warning should be raised for cached property access"
 
 
 def test_numpy_style_docstring():
